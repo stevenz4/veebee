@@ -1,0 +1,2064 @@
+<title>Rotations Volley 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=Big+Shoulders+Display:wght@700;800;900&display=swap">
+<style>
+/* Layout: courtside console. The 3D court is the stage; a scoring-table sidebar holds the controls.
+   At phone width the stage sits on top and the sidebar flows below it. */
+:root{
+  --ink:#13263A;
+  --ink-2:#46586A;
+  --ink-3:#6E8193;
+  --ground:#E7ECEF;
+  --panel:#FFFFFF;
+  --panel-2:#F1F4F6;
+  --line:#CFD8DF;
+  --court:#D9783A;          /* accent: FIVB court orange */
+  --court-soft:#F7E2D2;
+  --on-court:#1E1006;
+  --freezone:#1F5F8B;       /* free-zone blue */
+  --freezone-soft:#DAE7F1;
+  --stage:#C6D2DB;
+  --hall:#A8B7C3;
+  --ok:#1C7F4F; --ok-soft:#DCEFE4;
+  --fault:#B93232; --fault-soft:#F6DEDE;
+  --warn:#94600F; --warn-soft:#F5E9D2;
+  --shadow:0 1px 2px rgba(19,38,58,.08),0 6px 18px rgba(19,38,58,.06);
+  /* scene colours: physical objects, identical in both themes */
+  --jersey:#2457A6; --jersey-libero:#F2C230; --opp:#7C2D3B;
+  --on-jersey:#FFFFFF; --on-libero:#1E1406;
+  --rule-ok:#2FD07A; --rule-fault:#FF3B5C; --court-line:#F7F7F2; --box-fill:rgba(47,208,122,.3);
+  --hud-bg:rgba(9,18,28,.76); --hud-ink:#FFFFFF;
+  --font-display:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;
+  --font-body:"Barlow","Helvetica Neue",Arial,sans-serif;
+  --font-label:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#E6EDF3; --ink-2:#A6B5C3; --ink-3:#74889B;
+    --ground:#0B1520; --panel:#121F2C; --panel-2:#182838; --line:#26394C;
+    --court:#EE8A47; --court-soft:#3A2416; --on-court:#1E1006;
+    --freezone:#6FA8D4; --freezone-soft:#16324A;
+    --stage:#08111A; --hall:#0F1B27;
+    --ok:#4CC88B; --ok-soft:#11301F; --fault:#FF7474; --fault-soft:#3A1818; --warn:#E5AE4B; --warn-soft:#372A12;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 18px rgba(0,0,0,.28);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#E6EDF3; --ink-2:#A6B5C3; --ink-3:#74889B;
+  --ground:#0B1520; --panel:#121F2C; --panel-2:#182838; --line:#26394C;
+  --court:#EE8A47; --court-soft:#3A2416; --on-court:#1E1006;
+  --freezone:#6FA8D4; --freezone-soft:#16324A;
+  --stage:#08111A; --hall:#0F1B27;
+  --ok:#4CC88B; --ok-soft:#11301F; --fault:#FF7474; --fault-soft:#3A1818; --warn:#E5AE4B; --warn-soft:#372A12;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 18px rgba(0,0,0,.28);
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--ground);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+*,*::before,*::after{box-sizing:border-box}
+button{font:inherit;color:inherit}
+button:focus-visible,input:focus-visible{outline:2px solid var(--freezone);outline-offset:2px}
+
+.app{min-height:100%;display:flex;flex-direction:column;gap:12px;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+@media (min-width:980px){.app{height:100%}}
+
+/* ---------- top bar ---------- */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px 20px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand-mark{flex:none;width:24px;height:42px;border-radius:3px;background:var(--court);border:3px solid var(--freezone);position:relative}
+.brand-mark::before{content:"";position:absolute;left:0;right:0;top:calc(50% - 1px);height:2px;background:var(--court-line)}
+.brand-mark::after{content:"";position:absolute;left:0;right:0;top:calc(50% - 8px);height:16px;border-top:1px solid var(--court-line);border-bottom:1px solid var(--court-line);opacity:.8}
+.brand h1{margin:0;font-family:var(--font-display);font-weight:800;font-size:30px;line-height:.95;text-transform:uppercase;letter-spacing:.01em}
+.brand p{margin:3px 0 0;font-family:var(--font-label);font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;min-width:min(100%,372px)}
+.modes button{border:0;border-radius:9px;background:transparent;padding:7px 10px;font-family:var(--font-display);font-weight:800;font-size:20px;letter-spacing:.02em;text-transform:uppercase;color:var(--ink-2);cursor:pointer}
+.modes button:hover{color:var(--ink)}
+.modes button[aria-selected="true"]{background:var(--ink);color:var(--panel)}
+@media (max-width:979px){.modes{width:100%}}
+
+/* ---------- layout ---------- */
+.layout{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 372px;gap:14px}
+@media (max-width:979px){.layout{grid-template-columns:minmax(0,1fr)}}
+.stage-wrap{position:relative;min-height:340px;border-radius:14px;overflow:hidden;background:var(--stage);border:1px solid var(--line)}
+@media (max-width:979px){.stage-wrap{height:min(64vh,600px);height:min(64svh,600px)}}
+.stage{position:absolute;inset:0}
+.stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+.stage.dragging canvas{cursor:grabbing}
+.stage.picking canvas{cursor:crosshair}
+.stage-msg{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;font-family:var(--font-label);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+.side{min-height:0;overflow:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:2px}
+@media (max-width:979px){.side{overflow:visible}}
+
+/* ---------- HUD over the stage ---------- */
+.hud{position:absolute;left:12px;right:12px;display:flex;gap:8px;pointer-events:none}
+.hud-top{top:12px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
+.hud-bottom{bottom:12px;justify-content:center}
+.chips-hud{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:var(--font-label);font-weight:700;font-size:13.5px;letter-spacing:.07em;text-transform:uppercase;padding:6px 11px;border-radius:999px;background:var(--panel);color:var(--ink);box-shadow:var(--shadow);white-space:nowrap}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}
+.chip.fault{background:var(--fault-soft);color:var(--fault)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.seg-cam{pointer-events:auto;background:var(--panel);box-shadow:var(--shadow);margin-left:auto}
+.caption{display:inline-block;max-width:100%;font-family:var(--font-display);font-weight:800;font-size:clamp(19px,2.6vw,28px);line-height:1.1;letter-spacing:.02em;text-transform:uppercase;color:var(--hud-ink);background:var(--hud-bg);padding:7px 14px;border-radius:10px;text-align:center}
+.caption.soft{font-family:var(--font-label);font-weight:600;font-size:14px;letter-spacing:.06em}
+.caption:empty{display:none}
+@media (max-width:600px){.hide-sm{display:none}.caption.soft{display:none}.chip{font-size:12.5px;padding:5px 9px}.seg-cam button{padding:5px 9px;font-size:12.5px}}
+
+/* ---------- panels ---------- */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow)}
+.field{display:flex;flex-direction:column;gap:7px}
+.field-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.lbl{font-family:var(--font-label);font-weight:600;font-size:12.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2)}
+.muted{margin:0;color:var(--ink-2);font-size:14px}
+.btnrow{display:flex;flex-wrap:wrap;gap:6px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 13px;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);font-family:var(--font-label);font-weight:700;font-size:14.5px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--court);border-color:var(--court);color:var(--on-court)}
+.btn.primary:hover{filter:brightness(1.05)}
+.btn.small{padding:5px 10px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btnrow .grow{flex:1}
+
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:3px;padding:3px;background:var(--panel-2);border:1px solid var(--line);border-radius:999px}
+.seg button{border:0;border-radius:999px;background:transparent;padding:7px 10px;font-family:var(--font-label);font-weight:600;font-size:14.5px;letter-spacing:.03em;color:var(--ink-2);cursor:pointer;white-space:nowrap}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
+.seg button:disabled{opacity:.4;cursor:not-allowed}
+.seg-cam button{padding:6px 11px;font-size:13.5px}
+
+.rotstrip{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+.rotstrip button{display:flex;flex-direction:column;align-items:center;padding:6px 0 5px;border:1px solid var(--line);border-radius:9px;background:var(--panel-2);cursor:pointer}
+.rotstrip b{font-family:var(--font-display);font-weight:800;font-size:23px;line-height:1}
+.rotstrip small{font-family:var(--font-label);font-weight:600;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+.rotstrip button:hover{border-color:var(--ink-3)}
+.rotstrip button[aria-pressed="true"]{background:var(--court);border-color:var(--court);color:var(--on-court)}
+.rotstrip button[aria-pressed="true"] small{color:var(--on-court)}
+
+.info-head{display:flex;flex-direction:column;gap:2px}
+.info-head h2{margin:0;font-family:var(--font-display);font-weight:800;font-size:27px;line-height:1;text-transform:uppercase;text-wrap:balance}
+.meta{margin:0;font-family:var(--font-label);font-weight:600;font-size:13.5px;letter-spacing:.05em;color:var(--ink-2)}
+.rot-text{margin:0;max-width:62ch}
+
+.plist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.prow{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:10px;width:100%;padding:6px 8px;border-radius:10px;border:1px solid transparent;background:transparent;text-align:left;cursor:pointer}
+.prow:hover{background:var(--panel-2)}
+.prow[aria-pressed="true"]{border-color:var(--court);background:var(--court-soft)}
+.prow.off{opacity:.6}
+.prow.bad .zbadge{background:var(--fault-soft);color:var(--fault)}
+.jersey{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:var(--jersey);color:var(--on-jersey);font-family:var(--font-display);font-weight:800;font-size:21px;font-variant-numeric:tabular-nums}
+.jersey.libero{background:var(--jersey-libero);color:var(--on-libero)}
+.pmain{min-width:0;display:flex;flex-direction:column;gap:1px}
+.pname{font-weight:600;line-height:1.2}
+.pname small{margin-left:6px;font-family:var(--font-label);font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.pdest{font-size:13.5px;line-height:1.3;color:var(--ink-2)}
+.zbadge{font-family:var(--font-display);font-weight:800;font-size:16px;padding:3px 8px;border-radius:7px;background:var(--freezone-soft);color:var(--freezone);white-space:nowrap}
+
+.faults{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.faults li{display:grid;grid-template-columns:10px minmax(0,1fr);gap:9px;align-items:baseline;font-size:14px}
+.faults li::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--fault);transform:translateY(1px)}
+.faults li.ok::before{background:var(--ok)}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{border:1px solid var(--line);background:var(--panel-2);border-radius:999px;padding:6px 12px;font-family:var(--font-label);font-weight:600;font-size:14.5px;cursor:pointer}
+.chips button:hover{border-color:var(--ink-3)}
+.chips button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.qcard{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:10px;background:var(--panel-2)}
+.qcard h3{margin:0;font-family:var(--font-display);font-weight:800;font-size:28px;line-height:1;text-transform:uppercase}
+.qcard p{margin:0}
+.hint{font-size:14px;color:var(--ink-2);border-top:1px dashed var(--line);padding-top:7px}
+.feedback{padding:11px 13px;border-radius:10px;border-left:5px solid var(--ink-3);background:var(--panel-2)}
+.feedback strong{display:block;font-family:var(--font-display);font-weight:800;font-size:23px;line-height:1.05;text-transform:uppercase}
+.feedback ul{margin:6px 0 0;padding-left:18px;font-size:14px}
+.feedback.ok{border-color:var(--ok);background:var(--ok-soft)} .feedback.ok strong{color:var(--ok)}
+.feedback.fault{border-color:var(--fault);background:var(--fault-soft)} .feedback.fault strong{color:var(--fault)}
+.feedback.warn{border-color:var(--warn);background:var(--warn-soft)} .feedback.warn strong{color:var(--warn)}
+.score{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.score div{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:9px;background:var(--panel-2)}
+.score b{font-family:var(--font-display);font-weight:800;font-size:27px;line-height:1;font-variant-numeric:tabular-nums}
+
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;font-size:14.5px}
+.toggle input{appearance:none;-webkit-appearance:none;flex:none;width:38px;height:22px;margin:0;border-radius:999px;background:var(--line);position:relative;cursor:pointer;transition:background .2s}
+.toggle input::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--panel);transition:transform .2s}
+.toggle input:checked{background:var(--freezone)}
+.toggle input:checked::after{transform:translateX(16px)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;padding-top:4px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:4px;display:inline-block}
+.sw-team{background:var(--jersey)} .sw-libero{background:var(--jersey-libero)} .sw-opp{background:var(--opp);opacity:.7}
+.sw-ok{height:4px;border-radius:2px;background:var(--rule-ok)} .sw-fault{height:4px;border-radius:2px;background:var(--rule-fault)}
+.sw-box{background:var(--box-fill);border:2px solid var(--rule-ok)}
+.nb{padding-top:10px;border-top:1px solid var(--line)}
+.kbd{font-family:var(--font-label);font-size:12.5px;color:var(--ink-3);margin:0}
+
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <h1>Rotations Volley 3D</h1>
+        <p>Système 5-1 avec libéro · règles FIVB</p>
+      </div>
+    </div>
+    <nav class="modes" role="tablist" aria-label="Mode">
+      <button role="tab" id="tab-rotations" data-mode="rotations" aria-selected="true">Rotations</button>
+      <button role="tab" id="tab-libre" data-mode="libre" aria-selected="false">Fautes</button>
+      <button role="tab" id="tab-quiz" data-mode="quiz" aria-selected="false">Quiz</button>
+    </nav>
+  </header>
+
+  <main class="layout">
+    <section class="stage-wrap" aria-label="Terrain en 3D">
+      <div id="stage" class="stage"></div>
+      <div class="stage-msg" id="stage-msg">Chargement du terrain…</div>
+      <div class="hud hud-top">
+        <div class="chips-hud">
+          <span class="chip" id="status"></span>
+          <span class="chip ok" id="legal"></span>
+        </div>
+        <div class="seg seg-cam" id="seg-cam" role="group" aria-label="Caméra">
+          <button id="cam-tribune" data-cam="tribune" aria-pressed="true">Tribune</button>
+          <button id="cam-dessus" data-cam="dessus" aria-pressed="false">Dessus</button>
+          <button id="cam-joueur" data-cam="joueur" aria-pressed="false">Vue joueur</button>
+        </div>
+      </div>
+      <div class="hud hud-bottom"><span class="caption soft" id="caption"></span></div>
+    </section>
+
+    <aside class="side">
+      <section class="panel" id="panel-rot">
+        <div class="field">
+          <div class="field-head">
+            <span class="lbl">Rotation</span>
+            <button class="btn small" id="btn-turn" title="Passer à la rotation suivante (flèche droite)">Tourner ↻</button>
+          </div>
+          <div class="rotstrip" id="rotstrip"></div>
+        </div>
+        <div class="field">
+          <span class="lbl">Situation</span>
+          <div class="seg" id="seg-sit" role="group" aria-label="Situation">
+            <button id="sit-recoit" data-sit="recoit" aria-pressed="true">On reçoit</button>
+            <button id="sit-sert" data-sit="sert" aria-pressed="false">On sert</button>
+          </div>
+        </div>
+        <div class="field" id="field-phase">
+          <span class="lbl">Moment</span>
+          <div class="seg" id="seg-phase" role="group" aria-label="Moment">
+            <button id="ph-service" data-phase="service" aria-pressed="true">Au service</button>
+            <button id="ph-jeu" data-phase="jeu" aria-pressed="false">En jeu</button>
+          </div>
+          <div class="btnrow">
+            <button class="btn primary grow" id="btn-play">▶ Jouer l'action</button>
+            <button class="btn" id="btn-speed" title="Vitesse de l'animation">Vitesse 1×</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-libre" hidden>
+        <div class="seg" id="seg-sub" role="group" aria-label="Exercice">
+          <button id="sub-find" data-sub="find" aria-pressed="true">Trouve la faute</button>
+          <button id="sub-sandbox" data-sub="sandbox" aria-pressed="false">Bac à sable</button>
+        </div>
+        <div class="field" id="find-box">
+          <div class="qcard">
+            <span class="lbl" id="f-eyebrow"></span>
+            <h3 id="f-title"></h3>
+            <p>Une faute de position s'est glissée au moment du service. Clique sur un des deux joueurs en faute.</p>
+          </div>
+          <div class="feedback" id="f-feedback" hidden>
+            <strong id="f-fb-title"></strong>
+            <ul id="f-fb-lines"></ul>
+          </div>
+          <div class="score">
+            <div><span class="lbl">Série</span><b id="f-streak">0</b></div>
+            <div><span class="lbl">Record</span><b id="f-best">0</b></div>
+            <div><span class="lbl">Du 1er coup</span><b id="f-rate">0/0</b></div>
+          </div>
+        </div>
+        <div class="field" id="sandbox-box" hidden>
+          <p class="muted">Glisse les joueurs. Gauche et droite se lisent face au filet, depuis ton camp.</p>
+          <ul class="faults" id="fault-list"></ul>
+        </div>
+        <div class="btnrow">
+          <button class="btn" id="btn-reset">Remettre le placement type</button>
+          <button class="btn grow" id="btn-fnext">Nouvelle situation</button>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-quiz" hidden>
+        <div class="field">
+          <span class="lbl">Ton poste</span>
+          <div class="chips" id="quiz-roles"></div>
+        </div>
+        <div class="field">
+          <span class="lbl">Questions</span>
+          <div class="seg" id="seg-qtype" role="group" aria-label="Type de questions">
+            <button id="qt-service" data-qtype="service" aria-pressed="true">Au service</button>
+            <button id="qt-jeu" data-qtype="jeu" aria-pressed="false">En jeu</button>
+            <button id="qt-mix" data-qtype="mix" aria-pressed="false">Mélange</button>
+          </div>
+        </div>
+        <div class="qcard">
+          <span class="lbl" id="q-eyebrow"></span>
+          <h3 id="q-title"></h3>
+          <p id="q-text"></p>
+          <p class="hint" id="q-hint" hidden></p>
+        </div>
+        <div class="feedback" id="q-feedback" hidden>
+          <strong id="q-fb-title"></strong>
+          <ul id="q-fb-lines"></ul>
+        </div>
+        <div class="btnrow">
+          <button class="btn" id="btn-hint">Indice</button>
+          <button class="btn" id="btn-reveal">Voir la réponse</button>
+          <button class="btn primary grow" id="btn-next">Question suivante</button>
+        </div>
+        <div class="score">
+          <div><span class="lbl">Série</span><b id="sc-streak">0</b></div>
+          <div><span class="lbl">Record</span><b id="sc-best">0</b></div>
+          <div><span class="lbl">Réussite</span><b id="sc-rate">0/0</b></div>
+        </div>
+      </section>
+
+      <section class="panel" id="panel-info">
+        <div class="info-head">
+          <span class="lbl" id="rot-eyebrow"></span>
+          <h2 id="rot-title"></h2>
+          <p class="meta" id="rot-front"></p>
+        </div>
+        <p class="rot-text" id="rot-text"></p>
+        <div class="field nb" id="nb-field" hidden>
+          <span class="lbl" id="nb-title"></span>
+          <ul class="faults" id="nb-list"></ul>
+          <p class="kbd">Chaque voisin trace une ligne au sol, à hauteur de ses pieds. La zone verte est ce qui reste&nbsp;: c'est là que le joueur a le droit d'être.</p>
+        </div>
+        <ul class="plist" id="plist"></ul>
+      </section>
+
+      <section class="panel" id="panel-display">
+        <span class="lbl">Affichage</span>
+        <label class="toggle" for="tg-rules"><span>Règles de position (7 voisinages)</span><input type="checkbox" id="tg-rules" checked></label>
+        <label class="toggle" for="tg-zones"><span>Numéros de zone</span><input type="checkbox" id="tg-zones" checked></label>
+        <label class="toggle" for="tg-arrows"><span>Trajets après le service</span><input type="checkbox" id="tg-arrows" checked></label>
+        <div class="legend">
+          <span><i class="sw sw-team"></i>Ton équipe</span>
+          <span><i class="sw sw-libero"></i>Libéro</span>
+          <span><i class="sw sw-opp"></i>Adversaires</span>
+          <span><i class="sw sw-ok"></i>Règle respectée</span>
+          <span><i class="sw sw-fault"></i>Faute</span>
+          <span><i class="sw sw-box"></i>Zone autorisée</span>
+        </div>
+        <p class="kbd">Clavier&nbsp;: ← → rotations · Espace jouer l'action · 1 2 3 caméras</p>
+      </section>
+    </aside>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+/*DATA-START*/
+var RV = (function () {
+  'use strict';
+  // Coordinates in metres, seen from our own camp facing the net:
+  // x = left (-4.5) to right (+4.5); d = distance from the net (0) to our end line (9).
+  var PLAYERS = {
+    P:   { id: 'P',   code: 'P',    num: 7,  nom: 'Passeur',                   role: 'passeur' },
+    R41: { id: 'R41', code: 'R4·1', num: 4,  nom: 'Réceptionneur-attaquant 1', role: 'r4' },
+    C1:  { id: 'C1',  code: 'C1',   num: 11, nom: 'Central 1',                 role: 'central' },
+    PT:  { id: 'PT',  code: 'Pt',   num: 9,  nom: 'Pointu',                    role: 'pointu' },
+    R42: { id: 'R42', code: 'R4·2', num: 2,  nom: 'Réceptionneur-attaquant 2', role: 'r4' },
+    C2:  { id: 'C2',  code: 'C2',   num: 15, nom: 'Central 2',                 role: 'central' },
+    L:   { id: 'L',   code: 'L',    num: 1,  nom: 'Libéro',                    role: 'libero' }
+  };
+  var IDS = ['P', 'R41', 'C1', 'PT', 'R42', 'C2', 'L'];
+  // Rotation order as the team rotates (clockwise): setter zone 1, 6, 5, 4, 3, 2.
+  var ORDER = ['P1', 'P6', 'P5', 'P4', 'P3', 'P2'];
+  // Lineup "central devant le passeur": serving order P, R4·1, C1, Pt, R4·2, C2.
+  var LINEUP = {
+    P1: { 1: 'P',   2: 'R41', 3: 'C1',  4: 'PT',  5: 'R42', 6: 'C2'  },
+    P6: { 1: 'R41', 2: 'C1',  3: 'PT',  4: 'R42', 5: 'C2',  6: 'P'   },
+    P5: { 1: 'C1',  2: 'PT',  3: 'R42', 4: 'C2',  5: 'P',   6: 'R41' },
+    P4: { 1: 'PT',  2: 'R42', 3: 'C2',  4: 'P',   5: 'R41', 6: 'C1'  },
+    P3: { 1: 'R42', 2: 'C2',  3: 'P',   4: 'R41', 5: 'C1',  6: 'PT'  },
+    P2: { 1: 'C2',  2: 'P',   3: 'R41', 4: 'C1',  5: 'PT',  6: 'R42' }
+  };
+  var TARGET = [1.3, 0.6];        // setter's target at the net
+  var BENCH = [-5.7, 6.2];        // libero replacement zone, bench side
+  var SERVE_SPOT = [2.4, 10.2];   // our server, behind the end line
+
+  // Formations: service = legal stance at the moment of the serve; jeu = where each player goes after.
+  var F = {
+    P1: {
+      recoit: {
+        service: { PT: [-1.6, 0.9], C1: [-0.5, 0.9], R41: [0.2, 5.5], R42: [-2.7, 5.8], L: [2.5, 6.0], P: [3.9, 6.6] },
+        jeu:     { P: [1.3, 0.6], R41: [-3.7, 3.5], C1: [0.3, 3.0], PT: [3.7, 3.5], R42: [-0.4, 7.0], L: [-2.2, 5.8] }
+      },
+      sert: {
+        service: { P: [2.4, 10.2], PT: [-0.9, 0.8], C1: [0, 0.8], R41: [0.9, 0.8], R42: [-1.0, 6.2], L: [-0.1, 6.4] },
+        jeu:     { R41: [-2.8, 0.9], C1: [0, 0.9], PT: [2.8, 0.9], P: [2.8, 6.8], R42: [0, 7.4], L: [-2.8, 6.8] }
+      }
+    },
+    P6: {
+      recoit: {
+        service: { R42: [-2.8, 5.2], PT: [0.4, 0.7], C1: [1.4, 0.7], L: [-0.2, 6.2], P: [0.9, 1.6], R41: [2.6, 6.0] },
+        jeu:     { P: [1.3, 0.6], R42: [-3.7, 3.5], C1: [0.3, 3.0], PT: [3.7, 3.5], R41: [-0.4, 7.0], L: [-2.2, 5.8] }
+      },
+      sert: {
+        service: { R41: [2.4, 10.2], R42: [-2.6, 0.8], PT: [0.4, 0.8], C1: [1.3, 0.8], L: [-2.6, 6.4], P: [0.9, 6.0] },
+        jeu:     { R42: [-2.8, 0.9], C1: [0, 0.9], PT: [2.8, 0.9], P: [2.8, 6.8], R41: [0, 7.4], L: [-2.8, 6.8] }
+      }
+    },
+    P5: {
+      recoit: {
+        service: { C2: [-3.6, 0.7], P: [-3.1, 1.6], R42: [-2.3, 5.0], PT: [2.8, 0.8], R41: [0.2, 6.2], L: [2.8, 6.0] },
+        jeu:     { P: [1.3, 0.6], R42: [-3.7, 3.5], C2: [0.3, 3.0], PT: [3.7, 3.5], R41: [-0.4, 7.0], L: [-2.2, 5.8] }
+      },
+      sert: {
+        service: { C1: [2.4, 10.2], C2: [-1.6, 0.8], R42: [-0.6, 0.8], PT: [2.6, 0.8], P: [-0.2, 5.8], R41: [0.6, 6.4] },
+        jeu:     { R42: [-2.8, 0.9], C2: [0, 0.9], PT: [2.8, 0.9], P: [2.8, 6.8], R41: [0, 7.4], C1: [-2.8, 6.8] }
+      }
+    },
+    P4: {
+      recoit: {
+        service: { P: [-0.6, 0.7], C2: [0.3, 0.7], R42: [0.9, 5.4], R41: [-2.6, 5.8], L: [2.8, 6.0], PT: [3.9, 6.8] },
+        jeu:     { P: [1.3, 0.6], R42: [-3.7, 3.5], C2: [0.3, 3.0], PT: [3.3, 7.0], R41: [-0.4, 7.0], L: [-2.2, 5.8] }
+      },
+      sert: {
+        service: { PT: [2.4, 10.2], P: [-0.9, 0.8], C2: [0, 0.8], R42: [0.9, 0.8], R41: [-1.0, 6.2], L: [-0.1, 6.4] },
+        jeu:     { R42: [-2.8, 0.9], C2: [0, 0.9], P: [2.8, 0.9], PT: [2.8, 6.8], R41: [0, 7.4], L: [-2.8, 6.8] }
+      }
+    },
+    P3: {
+      recoit: {
+        service: { R41: [-2.6, 5.2], P: [0.8, 0.7], C2: [1.8, 0.7], L: [-0.2, 6.2], PT: [1.2, 7.4], R42: [2.6, 6.0] },
+        jeu:     { P: [1.3, 0.6], R41: [-3.7, 3.5], C2: [0.3, 3.0], PT: [3.3, 7.0], R42: [-0.4, 7.0], L: [-2.2, 5.8] }
+      },
+      sert: {
+        service: { R42: [2.4, 10.2], R41: [-2.6, 0.8], P: [0.4, 0.8], C2: [1.3, 0.8], L: [-2.6, 6.4], PT: [0.9, 6.0] },
+        jeu:     { R41: [-2.8, 0.9], C2: [0, 0.9], P: [2.8, 0.9], PT: [2.8, 6.8], R42: [0, 7.4], L: [-2.8, 6.8] }
+      }
+    },
+    P2: {
+      recoit: {
+        service: { C1: [-3.4, 0.7], R41: [-2.4, 5.0], P: [2.4, 0.7], PT: [0.2, 7.8], R42: [0.8, 6.2], L: [3.0, 6.0] },
+        jeu:     { P: [1.3, 0.6], R41: [-3.7, 3.5], C1: [0.3, 3.0], PT: [3.3, 7.0], R42: [-0.4, 7.0], L: [-2.2, 5.8] }
+      },
+      sert: {
+        service: { C2: [2.4, 10.2], C1: [-1.6, 0.8], R41: [-0.6, 0.8], P: [2.6, 0.8], PT: [-0.2, 5.8], R42: [0.6, 6.4] },
+        jeu:     { R41: [-2.8, 0.9], C1: [0, 0.9], P: [2.8, 0.9], PT: [2.8, 6.8], R42: [0, 7.4], C2: [-2.8, 6.8] }
+      }
+    }
+  };
+
+  var INFO = {
+    P1: { titre: 'Passeur en zone 1',
+      recoit: "Le passeur part du fond à droite, caché derrière le libéro, et file au filet dès la frappe du serveur. Trois attaquants devant : pointu, C1 et R4·1.",
+      sert: "Le passeur est au service. Devant, le pointu, C1 et R4·1 se resserrent au centre pour permuter dès la frappe." },
+    P6: { titre: 'Passeur en zone 6',
+      recoit: "Le passeur se colle derrière le pointu, à un mètre du filet : c'est le chemin le plus court vers la cible.",
+      sert: "R4·1 sert. Le passeur attend au centre arrière, puis glisse en défense à droite, en zone 1." },
+    P5: { titre: 'Passeur en zone 5',
+      recoit: "La rotation piège : le passeur se cache derrière C2, au filet côté gauche, puis longe le filet jusqu'à la cible.",
+      sert: "C1 sert, donc le libéro reste sur le banc pour ce point : il n'a pas le droit de servir. C1 défend ensuite à gauche, en zone 5." },
+    P4: { titre: 'Passeur en zone 4',
+      recoit: "Le passeur est devant, à gauche de C2. Seulement deux attaquants avant (R4·2 et C2) : le pointu attaque depuis la ligne arrière.",
+      sert: "Le pointu sert. Devant, le passeur se place à gauche du central, puis permute à droite pour contrer." },
+    P3: { titre: 'Passeur en zone 3',
+      recoit: "Le passeur est au filet, au centre. Il glisse vers la cible pendant que R4·1 réceptionne à gauche.",
+      sert: "R4·2 sert. Le passeur part contrer à droite et C2 revient au centre." },
+    P2: { titre: 'Passeur en zone 2',
+      recoit: "Le passeur est déjà à sa place, au filet à droite. Le pointu (zone 5) se cache au fond, derrière la réception.",
+      sert: "C2 sert, donc pas de libéro sur ce point. C2 défend ensuite à gauche, en zone 5." }
+  };
+
+  // Opponents (z < 0 is their camp, same x axis). recoit = they serve, sert = they receive.
+  var OPP = {
+    recoit: [[-2.2, -10.2], [-2.6, -0.9], [0, -0.9], [2.6, -0.9], [2.6, -6.8], [0, -7.4]],
+    sert:   [[-2.6, -5.8], [0, -6.2], [2.6, -5.8], [-1.6, -0.8], [0.4, -0.9], [1.6, -7.8]]
+  };
+
+  // The seven neighbour relations checked at the moment of the serve (FIVB 7.4).
+  // depth: a must be closer to the net than b. lat: a must be left of b.
+  var RELATIONS = [
+    { a: 4, b: 5, type: 'depth' }, { a: 3, b: 6, type: 'depth' }, { a: 2, b: 1, type: 'depth' },
+    { a: 4, b: 3, type: 'lat' }, { a: 3, b: 2, type: 'lat' },
+    { a: 5, b: 6, type: 'lat' }, { a: 6, b: 1, type: 'lat' }
+  ];
+  var ZONE_RULES = {
+    1: [['derrière', 2], ['à droite de', 6]],
+    2: [['devant', 1], ['à droite de', 3]],
+    3: [['devant', 6], ['à droite de', 4], ['à gauche de', 2]],
+    4: [['devant', 5], ['à gauche de', 3]],
+    5: [['derrière', 4], ['à gauche de', 6]],
+    6: [['derrière', 3], ['à droite de', 5], ['à gauche de', 1]]
+  };
+
+  function isCentral(id) { return id === 'C1' || id === 'C2'; }
+
+  // The libero replaces the back-row central, except while that central serves.
+  function zonesOnCourt(rot, sit) {
+    var src = LINEUP[rot], zm = {};
+    for (var z = 1; z <= 6; z++) zm[z] = src[z];
+    [1, 5, 6].forEach(function (z) {
+      if (isCentral(zm[z]) && !(sit === 'sert' && z === 1)) zm[z] = 'L';
+    });
+    return zm;
+  }
+  function zoneOf(zm, id) {
+    for (var z = 1; z <= 6; z++) if (zm[z] === id) return z;
+    return 0;
+  }
+  function offCourt(rot, sit) {
+    var zm = zonesOnCourt(rot, sit), on = [];
+    for (var z = 1; z <= 6; z++) on.push(zm[z]);
+    return IDS.filter(function (id) { return on.indexOf(id) < 0; })[0];
+  }
+  function isFront(z) { return z >= 2 && z <= 4; }
+
+  function relMsg(r) {
+    var A = PLAYERS[r.ida].code + ' (zone ' + r.a + ')', B = PLAYERS[r.idb].code + ' (zone ' + r.b + ')';
+    return r.type === 'depth'
+      ? A + ' doit être devant ' + B + ', plus près du filet.'
+      : A + ' doit être à gauche de ' + B + '.';
+  }
+
+  function check(rot, sit, posOf) {
+    var zm = zonesOnCourt(rot, sit), serving = sit === 'sert', rels = [], faults = [];
+    RELATIONS.forEach(function (r) {
+      var ida = zm[r.a], idb = zm[r.b], exempt = serving && (r.a === 1 || r.b === 1);
+      var pa = posOf(ida), pb = posOf(idb);
+      var ok = exempt ? true : (r.type === 'depth' ? pa[1] < pb[1] : pa[0] < pb[0]);
+      var rel = { a: r.a, b: r.b, type: r.type, ida: ida, idb: idb, ok: ok, exempt: exempt };
+      rels.push(rel);
+      if (!ok) faults.push({ kind: 'rel', ids: [ida, idb], msg: relMsg(rel) });
+    });
+    for (var z = 1; z <= 6; z++) {
+      var id = zm[z], p = posOf(id);
+      if (serving && z === 1) {
+        if (!(p[1] >= 9 && Math.abs(p[0]) <= 4.5)) {
+          faults.push({ kind: 'server', ids: [id], msg: PLAYERS[id].code + " sert : il doit être derrière la ligne de fond, entre les prolongements des lignes de côté." });
+        }
+      } else if (Math.abs(p[0]) > 4.55 || p[1] < -0.05 || p[1] > 9.05) {
+        faults.push({ kind: 'out', ids: [id], msg: PLAYERS[id].code + ' (zone ' + z + ') doit avoir les pieds dans le terrain au moment du service.' });
+      }
+    }
+    return { zm: zm, rels: rels, faults: faults };
+  }
+
+  function joinFr(parts) {
+    if (parts.length < 2) return parts.join('');
+    return parts.slice(0, -1).join(', ') + ' et ' + parts[parts.length - 1];
+  }
+  function zoneHint(rot, sit, id) {
+    var zm = zonesOnCourt(rot, sit), z = zoneOf(zm, id), serving = sit === 'sert';
+    if (serving && z === 1) return "Tu es en zone 1 et ton équipe sert : c'est toi qui sers.";
+    var parts = ZONE_RULES[z].filter(function (r) { return !(serving && r[1] === 1); })
+      .map(function (r) { return r[0] + ' ' + PLAYERS[zm[r[1]]].code + ' (zone ' + r[1] + ')'; });
+    return 'Tu es en zone ' + z + ' : ' + joinFr(parts) + '.';
+  }
+
+  function destText(rot, sit, id) {
+    var zm = zonesOnCourt(rot, sit), z = zoneOf(zm, id), role = PLAYERS[id].role;
+    if (!z) return id === 'L' ? "Sur le banc : le libéro n'a pas le droit de servir." : 'Sur le banc : le libéro prend sa place au fond.';
+    var front = isFront(z);
+    if (sit === 'recoit') {
+      if (role === 'passeur') return 'Va à la cible, au filet entre les zones 2 et 3.';
+      if (role === 'libero') return "Réceptionne, puis couvre l'attaque.";
+      if (role === 'r4') return front ? 'Réceptionne, puis attaque à gauche (zone 4).' : 'Réceptionne, puis attaque du fond au centre (pipe).';
+      if (role === 'central') return 'Recule pour prendre son élan : balle rapide au centre.';
+      return front ? 'Attaque à droite (zone 2).' : 'Attaque du fond, à droite (zone 1).';
+    }
+    if (z === 1) {
+      var slot = (role === 'passeur' || role === 'pointu') ? 1 : role === 'r4' ? 6 : 5;
+      return 'Sert, puis défend en zone ' + slot + '.';
+    }
+    if (front) return role === 'r4' ? 'Contre à gauche (zone 4).' : role === 'central' ? 'Contre au centre (zone 3).' : 'Contre à droite (zone 2).';
+    if (role === 'passeur' || role === 'pointu') return 'Défend à droite (zone 1).';
+    if (role === 'r4') return 'Défend au centre arrière (zone 6).';
+    return 'Défend à gauche (zone 5).';
+  }
+
+  function placeTip(rot, sit, id) {
+    var zm = zonesOnCourt(rot, sit), z = zoneOf(zm, id), role = PLAYERS[id].role, front = isFront(z);
+    if (sit === 'recoit') {
+      if (role === 'passeur') return front ? 'au filet, au plus près de la cible.' : 'caché derrière un coéquipier, prêt à filer à la cible.';
+      if (role === 'libero' || role === 'r4') return 'dans la ligne des trois réceptionneurs, vers 5 à 6 m du filet.';
+      if (role === 'central') return 'au filet : le central avant ne réceptionne pas.';
+      return front ? 'au filet : le pointu ne réceptionne pas.' : 'caché au fond, hors de la ligne de réception.';
+    }
+    return front ? 'au filet, serré contre les autres avants pour permuter vite.' : 'au fond, déjà orienté vers ta place de défense.';
+  }
+
+  // Legal rectangle of one player at the serve. Each neighbour draws a line through his own feet;
+  // the player must stay on the right side of every line, and inside the court.
+  function legalBox(rot, sit, id, posOf) {
+    var zm = zonesOnCourt(rot, sit), z = zoneOf(zm, id), serving = sit === 'sert';
+    if (!z) return null;
+    var p = posOf(id), box = { xmin: -4.5, xmax: 4.5, zmin: 0, zmax: 9, bounds: [], zone: z, server: serving && z === 1 };
+    if (box.server) { box.zmin = 9; box.zmax = 12.5; }
+    else RELATIONS.forEach(function (r) {
+      if (r.a !== z && r.b !== z) return;
+      var oz = r.a === z ? r.b : r.a;
+      if (serving && oz === 1) return;
+      var ax = r.type === 'depth' ? 'z' : 'x', i = ax === 'z' ? 1 : 0, q = posOf(zm[oz]);
+      var b = { axis: ax, side: r.a === z ? 'max' : 'min', value: q[i], ref: zm[oz], refZone: oz };
+      b.ok = b.side === 'max' ? p[i] < b.value : p[i] > b.value;
+      if (b.side === 'max') box[ax + 'max'] = Math.min(box[ax + 'max'], b.value);
+      else box[ax + 'min'] = Math.max(box[ax + 'min'], b.value);
+      box.bounds.push(b);
+    });
+    box.empty = box.xmin >= box.xmax || box.zmin >= box.zmax;
+    box.inCourt = box.server ? (p[1] >= 9 && Math.abs(p[0]) <= 4.5) : (Math.abs(p[0]) <= 4.5 && p[1] >= 0 && p[1] <= 9);
+    box.ok = box.inCourt && box.bounds.every(function (b) { return b.ok; });
+    return box;
+  }
+  var BOUND_WORD = { 'z-max': 'Devant', 'z-min': 'Derrière', 'x-max': 'À gauche de', 'x-min': 'À droite de' };
+  function boundText(b, withZone) {
+    return BOUND_WORD[b.axis + '-' + b.side] + ' ' + PLAYERS[b.ref].code + (withZone ? ' (zone ' + b.refZone + ')' : '');
+  }
+  function nearestLegal(box, p, m) {
+    if (!box || box.empty) return null;
+    var mx = Math.min(m, (box.xmax - box.xmin) / 2), mz = Math.min(m, (box.zmax - box.zmin) / 2);
+    return [Math.max(box.xmin + mx, Math.min(box.xmax - mx, p[0])), Math.max(box.zmin + mz, Math.min(box.zmax - mz, p[1]))];
+  }
+  function fixText(from, to) {
+    var dx = to[0] - from[0], dz = to[1] - from[1], d = Math.hypot(dx, dz).toFixed(1).replace('.', ',');
+    if (Math.abs(dz) >= Math.abs(dx)) return (dz > 0 ? 'Recule de ' : 'Avance de ') + d + ' m';
+    return 'Décale-toi de ' + d + ' m à ' + (dx > 0 ? 'droite' : 'gauche');
+  }
+
+  // "Spot the fault": one player crosses exactly one neighbour line, by a plausible distance (< 2 m).
+  function faultScenario(rnd) {
+    rnd = rnd || Math.random;
+    var cands = [];
+    ORDER.forEach(function (rot) {
+      ['recoit', 'sert'].forEach(function (sit) {
+        var base = F[rot][sit].service, zm = zonesOnCourt(rot, sit);
+        RELATIONS.forEach(function (r, ri) {
+          if (sit === 'sert' && (r.a === 1 || r.b === 1)) return;
+          [r.a, r.b].forEach(function (mz) {
+            var id = zm[mz], other = zm[mz === r.a ? r.b : r.a], ax = r.type === 'depth' ? 1 : 0, dir = mz === r.a ? 1 : -1;
+            var gap = (base[other][ax] - base[id][ax]) * dir, found = null;
+            [0.4, 0.7].forEach(function (over) {
+              [0, 0.6, -0.6].forEach(function (side) {
+                if (found || gap + over > 2) return;
+                var np = base[id].slice();
+                np[ax] += (gap + over) * dir; np[1 - ax] += side;
+                if (Math.abs(np[0]) > 4.2 || np[1] < 0.35 || np[1] > 8.7) return;
+                var pos = {};
+                Object.keys(base).forEach(function (k) { pos[k] = k === id ? np : base[k]; });
+                for (var k in pos) if (k !== id && Math.hypot(pos[k][0] - np[0], pos[k][1] - np[1]) < 0.75) return;
+                var chk = check(rot, sit, function (k) { return pos[k]; });
+                if (chk.faults.length !== 1 || chk.rels[ri].ok) return;
+                found = { rot: rot, sit: sit, pos: pos, moved: id, ida: chk.rels[ri].ida, idb: chk.rels[ri].idb,
+                  msg: chk.faults[0].msg, key: rot + sit + ri + id };
+              });
+            });
+            if (found) cands.push(found);
+          });
+        });
+      });
+    });
+    return cands[Math.floor(rnd() * cands.length)];
+  }
+
+  return {
+    PLAYERS: PLAYERS, IDS: IDS, ORDER: ORDER, LINEUP: LINEUP, TARGET: TARGET, BENCH: BENCH, SERVE_SPOT: SERVE_SPOT,
+    F: F, INFO: INFO, OPP: OPP, RELATIONS: RELATIONS,
+    zonesOnCourt: zonesOnCourt, zoneOf: zoneOf, offCourt: offCourt, isFront: isFront,
+    check: check, zoneHint: zoneHint, destText: destText, placeTip: placeTip,
+    legalBox: legalBox, boundText: boundText, nearestLegal: nearestLegal, fixText: fixText, faultScenario: faultScenario
+  };
+})();
+/*DATA-END*/
+</script>
+
+<script>
+(function () {
+  'use strict';
+  var D = RV;
+  var fr = function (s) { return String(s).replace(/ ([:;?!»])/g, ' $1').replace(/« /g, '« '); };
+  var $ = function (s) { return document.querySelector(s); };
+  var $$ = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
+  var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var store = {
+    get: function (k, d) { try { var v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  };
+  var SIT_LABEL = { recoit: 'On reçoit', sert: 'On sert' };
+  var PHASE_LABEL = { service: 'Au service', jeu: 'En jeu' };
+  var ROLE_LABEL = { passeur: 'Passeur', r4: 'R4', central: 'Central', pointu: 'Pointu', libero: 'Libéro' };
+
+  var state = {
+    mode: 'rotations', rot: 'P1', sit: 'recoit', phase: 'service', sel: 'P',
+    rules: true, zones: true, arrows: true, cam: 'tribune', speed: 1,
+    libre: null, dragging: null, action: null, sub: 'find',
+    fq: { sc: null, found: false, fixed: false, probe: null, tries: 0, n: 0, ok: 0, total: 0, streak: 0, best: store.get('rv3d.fbest', 0) },
+    quiz: {
+      role: store.get('rv3d.role', 'r4'), type: store.get('rv3d.qtype', 'service'),
+      q: null, answered: false, res: null, n: 0, streak: 0, best: store.get('rv3d.best', 0), ok: 0, total: 0, hint: false
+    }
+  };
+  if (!ROLE_LABEL[state.quiz.role]) state.quiz.role = 'r4';
+  if (['service', 'jeu', 'mix'].indexOf(state.quiz.type) < 0) state.quiz.type = 'service';
+
+  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+  function fmt(n) { return n.toFixed(1).replace('.', ','); }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function ease(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+
+  /* ======================= 3D ======================= */
+  var R = null;            // three runtime
+  var P3 = {};             // our players
+  var O3 = [];             // opponents
+  var has3D = false;
+
+  function col(hex) { return new THREE.Color(hex).convertSRGBToLinear(); }
+  function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  function init3D() {
+    var host = $('#stage');
+    if (typeof THREE === 'undefined' || !THREE.OrbitControls) {
+      $('#stage-msg').textContent = fr("La vue 3D n'a pas pu se charger. Les placements restent lisibles dans le panneau.");
+      return false;
+    }
+    var renderer;
+    try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
+    catch (e) { $('#stage-msg').textContent = fr("WebGL n'est pas disponible sur cet appareil."); return false; }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    host.appendChild(renderer.domElement);
+
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
+    camera.position.set(6.8, 12.2, 18.5);
+    var controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.09;
+    controls.target.set(0, 0.4, 2.6);
+    controls.minDistance = 4;
+    controls.maxDistance = 48;
+    controls.maxPolarAngle = 1.48;
+    controls.addEventListener('start', function () { if (R) R.camTween = null; });
+
+    var hemi = new THREE.HemisphereLight(0xffffff, 0x3a4652, 0.45);
+    scene.add(hemi);
+    var sun = new THREE.DirectionalLight(0xffffff, 0.6);
+    sun.position.set(5, 18, 9);
+    sun.target.position.set(0, 0, 1);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    var sc = sun.shadow.camera; sc.left = -13; sc.right = 13; sc.top = 15; sc.bottom = -15; sc.near = 2; sc.far = 50;
+    sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
+    scene.add(sun); scene.add(sun.target);
+
+    R = { renderer: renderer, scene: scene, camera: camera, controls: controls, hemi: hemi, sun: sun,
+      camTween: null, pick: [], raycaster: new THREE.Raycaster(), floorPlane: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0) };
+
+    buildHall();
+    buildFloor();
+    buildNet();
+    buildFigures();
+    buildBall();
+    buildRules();
+    R.arrows = new THREE.Group(); scene.add(R.arrows);
+    buildMarker();
+    buildGuides();
+    applyTheme();
+
+    var ro = new ResizeObserver(resize); ro.observe(host); resize();
+    bindPointer(renderer.domElement);
+    $('#stage-msg').hidden = true;
+    return true;
+  }
+
+  function resize() {
+    if (!R) return;
+    var host = $('#stage'), w = host.clientWidth || 1, h = host.clientHeight || 1;
+    R.renderer.setSize(w, h, false);
+    R.camera.aspect = w / h;
+    R.camera.fov = w / h < 0.9 ? 52 : 42;
+    R.camera.updateProjectionMatrix();
+  }
+
+  function applyTheme() {
+    if (!R) return;
+    var stage = cssVar('--stage') || '#C6D2DB', hall = cssVar('--hall') || '#A8B7C3';
+    var dark = new THREE.Color(stage).getHSL({}).l < 0.3;
+    R.scene.background = new THREE.Color(stage);
+    R.scene.fog = new THREE.Fog(col(stage), 34, 78);
+    R.hallMat.color = col(hall);
+    R.hemi.intensity = dark ? 0.3 : 0.45;
+    R.sun.intensity = dark ? 0.72 : 0.6;
+  }
+
+  function buildHall() {
+    var mat = new THREE.MeshStandardMaterial({ color: 0xa8b7c3, roughness: 1 });
+    var hall = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), mat);
+    hall.rotation.x = -Math.PI / 2; hall.position.y = -0.02; hall.receiveShadow = true;
+    R.scene.add(hall); R.hallMat = mat;
+  }
+
+  function canvasTex(c) {
+    var t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    t.anisotropy = R.renderer.capabilities.getMaxAnisotropy();
+    return t;
+  }
+
+  function buildFloor() {
+    var PPM = 64, W = 19, H = 32;
+    var c = document.createElement('canvas'); c.width = W * PPM; c.height = H * PPM;
+    var g = c.getContext('2d');
+    var X = function (x) { return (x + W / 2) * PPM; }, Z = function (z) { return (z + H / 2) * PPM; };
+    g.fillStyle = '#1F5F8B'; g.fillRect(0, 0, c.width, c.height);
+    g.fillStyle = '#D9783A'; g.fillRect(X(-4.5), Z(-9), 9 * PPM, 18 * PPM);
+    // faint sports-floor grain
+    g.globalAlpha = 0.05;
+    for (var i = 0; i < 1400; i++) {
+      g.fillStyle = i % 2 ? '#000000' : '#ffffff';
+      g.fillRect(Math.random() * c.width, Math.random() * c.height, 2 + Math.random() * 40, 1);
+    }
+    g.globalAlpha = 1;
+    var lw = 0.05 * PPM;
+    g.fillStyle = '#F7F7F2';
+    g.fillRect(X(-4.5), Z(-9), 9 * PPM, lw);                 // far end line
+    g.fillRect(X(-4.5), Z(9) - lw, 9 * PPM, lw);             // our end line
+    g.fillRect(X(-4.5), Z(-9), lw, 18 * PPM);                // left side line
+    g.fillRect(X(4.5) - lw, Z(-9), lw, 18 * PPM);            // right side line
+    g.fillRect(X(-4.5), Z(0) - lw / 2, 9 * PPM, lw);         // centre line
+    g.fillRect(X(-4.5), Z(3) - lw, 9 * PPM, lw);             // our attack line (3 m)
+    g.fillRect(X(-4.5), Z(-3), 9 * PPM, lw);                 // their attack line
+    // attack-line extensions: five 15 cm dashes, 20 cm apart, beyond each side line
+    [-1, 1].forEach(function (side) {
+      [3, -3].forEach(function (zz) {
+        for (var k = 0; k < 5; k++) {
+          var a = 4.5 + 0.2 + k * 0.35;
+          var x0 = side > 0 ? X(a) : X(-a - 0.15);
+          g.fillRect(x0, zz > 0 ? Z(3) - lw : Z(-3), 0.15 * PPM, lw);
+        }
+      });
+    });
+    // service-zone marks: 15 cm, 20 cm behind each end line, in line with the side lines
+    [-4.5, 4.5].forEach(function (sx) {
+      var x0 = sx < 0 ? X(-4.5) : X(4.5) - lw;
+      g.fillRect(x0, Z(9.2), lw, 0.15 * PPM);
+      g.fillRect(x0, Z(-9.35), lw, 0.15 * PPM);
+    });
+    var tex = canvasTex(c);
+    var floor = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 }));
+    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
+    R.scene.add(floor);
+
+    // zone numbers on our half (separate layer so it can be toggled)
+    var zc = document.createElement('canvas'); zc.width = 900; zc.height = 900;
+    R.zoneCanvas = zc; R.zoneTex = canvasTex(zc);
+    var zm = new THREE.Mesh(new THREE.PlaneGeometry(9, 9),
+      new THREE.MeshBasicMaterial({ map: R.zoneTex, transparent: true, depthWrite: false }));
+    zm.rotation.x = -Math.PI / 2; zm.position.set(0, 0.004, 4.5);
+    R.scene.add(zm); R.zoneMesh = zm;
+    drawZones();
+  }
+
+  function drawZones() {
+    var c = R.zoneCanvas, g = c.getContext('2d'), S = 100;
+    g.clearRect(0, 0, c.width, c.height);
+    g.strokeStyle = 'rgba(255,255,255,0.28)'; g.lineWidth = 4; g.setLineDash([22, 18]);
+    [-1.5, 1.5].forEach(function (x) { g.beginPath(); g.moveTo((x + 4.5) * S, 0); g.lineTo((x + 4.5) * S, 900); g.stroke(); });
+    g.setLineDash([]);
+    g.fillStyle = 'rgba(255,255,255,0.2)';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '900 210px "Big Shoulders Display", "Arial Narrow", Impact, sans-serif';
+    [[4, -3, 1.5], [3, 0, 1.5], [2, 3, 1.5], [5, -3, 6], [6, 0, 6], [1, 3, 6]].forEach(function (z) {
+      g.fillText(String(z[0]), (z[1] + 4.5) * S, z[2] * S + 10);
+    });
+    R.zoneTex.needsUpdate = true;
+  }
+
+  function buildNet() {
+    var grp = new THREE.Group();
+    var NET_TOP = 2.43, NET_W = 9.8;
+    var tile = document.createElement('canvas'); tile.width = 32; tile.height = 32;
+    var tg = tile.getContext('2d'); tg.strokeStyle = 'rgba(18,20,24,0.9)'; tg.lineWidth = 3;
+    tg.strokeRect(0, 0, 32, 32);
+    var tt = canvasTex(tile); tt.wrapS = tt.wrapT = THREE.RepeatWrapping; tt.repeat.set(NET_W / 0.1, 10);
+    var mesh = new THREE.Mesh(new THREE.PlaneGeometry(NET_W, 1),
+      new THREE.MeshBasicMaterial({ map: tt, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }));
+    mesh.position.set(0, NET_TOP - 0.5, 0); grp.add(mesh);
+    var white = new THREE.MeshStandardMaterial({ color: col('#F4F4F0'), roughness: 0.6 });
+    var top = new THREE.Mesh(new THREE.BoxGeometry(NET_W, 0.07, 0.025), white); top.position.set(0, NET_TOP - 0.035, 0); top.castShadow = true; grp.add(top);
+    var bot = new THREE.Mesh(new THREE.BoxGeometry(NET_W, 0.05, 0.02), white); bot.position.set(0, NET_TOP - 0.975, 0); grp.add(bot);
+    [-1, 1].forEach(function (s) {
+      var band = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1, 0.022), white); band.position.set(s * 4.475, NET_TOP - 0.5, 0); grp.add(band);
+      // antenna: 1.8 m, red and white 10 cm bands, 80 cm above the net
+      var ac = document.createElement('canvas'); ac.width = 8; ac.height = 180;
+      var ag = ac.getContext('2d');
+      for (var k = 0; k < 18; k++) { ag.fillStyle = k % 2 ? '#F4F4F0' : '#D7263D'; ag.fillRect(0, k * 10, 8, 10); }
+      var ant = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, 1.8, 10), new THREE.MeshStandardMaterial({ map: canvasTex(ac), roughness: 0.5 }));
+      ant.position.set(s * 4.525, NET_TOP + 0.8 - 0.9, 0); ant.castShadow = true; grp.add(ant);
+      var post = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 2.6, 16), new THREE.MeshStandardMaterial({ color: col('#7F8A95'), roughness: 0.4, metalness: 0.3 }));
+      post.position.set(s * 5.45, 1.3, 0); post.castShadow = true; grp.add(post);
+    });
+    var cable = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 10.9, 6), new THREE.MeshStandardMaterial({ color: col('#2A2F35') }));
+    cable.rotation.z = Math.PI / 2; cable.position.set(0, NET_TOP + 0.01, 0); grp.add(cable);
+    R.scene.add(grp);
+  }
+
+  /* ---------- figures ---------- */
+  var GEO = null;
+  function geos() {
+    GEO = {
+      leg: new THREE.CylinderGeometry(0.08, 0.068, 0.86, 12),
+      shorts: new THREE.CylinderGeometry(0.205, 0.218, 0.24, 18),
+      torso: new THREE.CylinderGeometry(0.245, 0.2, 0.6, 18),
+      arm: new THREE.CylinderGeometry(0.052, 0.044, 0.62, 10),
+      head: new THREE.SphereGeometry(0.125, 20, 14),
+      ring: new THREE.RingGeometry(0.36, 0.45, 48),
+      disc: new THREE.CircleGeometry(0.34, 40)
+    };
+    GEO.ring.rotateX(-Math.PI / 2); GEO.disc.rotateX(-Math.PI / 2);
+  }
+
+  function makeFigure(o) {
+    var g = new THREE.Group(), ghost = !!o.ghost;
+    function mat(hex) {
+      return new THREE.MeshStandardMaterial({ color: col(hex), roughness: 0.62, transparent: ghost, opacity: ghost ? 0.5 : 1, depthWrite: !ghost });
+    }
+    var mJ = mat(o.jersey), mS = mat(o.shorts), mK = mat('#C9AE92');
+    var parts = [];
+    [-0.1, 0.1].forEach(function (x) { var l = new THREE.Mesh(GEO.leg, mK); l.position.set(x, 0.43, 0); parts.push(l); });
+    var sh = new THREE.Mesh(GEO.shorts, mS); sh.position.y = 0.86; parts.push(sh);
+    var to = new THREE.Mesh(GEO.torso, mJ); to.position.y = 1.25; parts.push(to);
+    var he = new THREE.Mesh(GEO.head, mK); he.position.y = 1.7; parts.push(he);
+    var arms = [-1, 1].map(function (s) {
+      var piv = new THREE.Group(); piv.position.set(s * 0.275, 1.5, 0); piv.rotation.z = s * 0.1;
+      var a = new THREE.Mesh(GEO.arm, mJ === mK ? mK : mK); a.position.y = -0.31; piv.add(a); parts.push(a);
+      g.add(piv); return piv;
+    });
+    parts.forEach(function (m) { m.castShadow = !ghost; if (m.parent !== arms[0] && m.parent !== arms[1]) g.add(m); });
+    return { group: g, parts: parts, armL: arms[0], armR: arms[1], mats: [mJ, mS, mK] };
+  }
+
+  function buildFigures() {
+    geos();
+    var ringMatBase = { transparent: true, depthWrite: false };
+    D.IDS.forEach(function (id) {
+      var isL = id === 'L';
+      var f = makeFigure({ jersey: isL ? '#F2C230' : '#2457A6', shorts: '#EEF1F4' });
+      var disc = new THREE.Mesh(GEO.disc, new THREE.MeshBasicMaterial(Object.assign({ color: col('#09121C'), opacity: 0.18 }, ringMatBase)));
+      disc.position.y = 0.006; f.group.add(disc);
+      var ring = new THREE.Mesh(GEO.ring, new THREE.MeshBasicMaterial(Object.assign({ color: col('#FFFFFF'), opacity: 0.4 }, ringMatBase)));
+      ring.position.y = 0.012; f.group.add(ring);
+      var lc = document.createElement('canvas'); lc.width = 256; lc.height = 128;
+      var lt = canvasTex(lc);
+      var label = new THREE.Sprite(new THREE.SpriteMaterial({ map: lt, depthTest: false, transparent: true }));
+      label.scale.set(1.5, 0.75, 1); label.position.y = 2.55; label.renderOrder = 999;
+      f.group.add(label);
+      f.parts.forEach(function (m) { m.userData.id = id; R.pick.push(m); });
+      label.userData.id = id; R.pick.push(label);
+      R.scene.add(f.group);
+      var start = D.F.P1.recoit.service[id] || D.BENCH;
+      P3[id] = { id: id, fig: f, group: f.group, ring: ring, label: label, lc: lc, lt: lt, x: start[0], z: start[1], y: 0, tw: null, hidden: false };
+      placeFig(P3[id]);
+    });
+    for (var i = 0; i < 6; i++) {
+      var f = makeFigure({ jersey: '#7C2D3B', shorts: '#2A2F36', ghost: true });
+      R.scene.add(f.group);
+      var p = D.OPP.recoit[i];
+      O3.push({ fig: f, group: f.group, x: p[0], z: p[1], y: 0, tw: null });
+      placeFig(O3[i]);
+    }
+    drawLabels();
+  }
+
+  function placeFig(p) {
+    p.group.position.set(p.x, p.y, p.z);
+    var k = clamp(p.y / 0.32, 0, 1);
+    p.fig.armL.rotation.z = -0.1 + (-(Math.PI - 0.3) + 0.1) * k;
+    p.fig.armR.rotation.z = 0.1 + ((Math.PI - 0.3) - 0.1) * k;
+  }
+
+  function roundRect(g, x, y, w, h, r) {
+    g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+  }
+
+  function drawLabels() {
+    if (!R) return;
+    var zm = currentZones();
+    D.IDS.forEach(function (id) {
+      var p = P3[id], g = p.lc.getContext('2d'), W = 256, H = 128;
+      var sel = state.sel === id, z = D.zoneOf(zm, id);
+      g.clearRect(0, 0, W, H);
+      var code = D.PLAYERS[id].code, sub = '#' + D.PLAYERS[id].num + ' · ' + (z ? 'Z' + z : 'banc');
+      g.font = '800 58px "Big Shoulders Display", "Arial Narrow", Impact, sans-serif';
+      var cw = g.measureText(code).width;
+      g.font = '600 34px "Barlow Condensed", "Arial Narrow", sans-serif';
+      var sw = g.measureText(sub).width;
+      var bw = Math.min(W - 8, cw + sw + 46), bx = (W - bw) / 2;
+      g.fillStyle = sel ? '#F08A45' : 'rgba(9,18,28,0.86)';
+      roundRect(g, bx, 12, bw, 84, 20); g.fill();
+      g.beginPath(); g.moveTo(W / 2 - 13, 95); g.lineTo(W / 2 + 13, 95); g.lineTo(W / 2, 112); g.closePath(); g.fill();
+      g.textBaseline = 'middle'; g.textAlign = 'left';
+      g.font = '800 58px "Big Shoulders Display", "Arial Narrow", Impact, sans-serif';
+      g.fillStyle = sel ? '#1E1006' : (id === 'L' ? '#F2C230' : '#FFFFFF');
+      g.fillText(code, bx + 18, 57);
+      g.font = '600 34px "Barlow Condensed", "Arial Narrow", sans-serif';
+      g.fillStyle = sel ? '#3A1E0A' : 'rgba(214,226,238,0.92)';
+      g.fillText(sub, bx + 18 + cw + 10, 60);
+      p.lt.needsUpdate = true;
+    });
+  }
+
+  function buildBall() {
+    var c = document.createElement('canvas'); c.width = 512; c.height = 256;
+    var g = c.getContext('2d');
+    g.fillStyle = '#F5F2EA'; g.fillRect(0, 0, 512, 256);
+    [['#F2C230', 30], ['#2457A6', 104], ['#F2C230', 178]].forEach(function (b) {
+      g.fillStyle = b[0]; g.beginPath();
+      for (var i = 0; i <= 512; i += 8) { var y = b[1] + Math.sin(i / 512 * Math.PI * 4) * 16; if (i) g.lineTo(i, y); else g.moveTo(i, y); }
+      for (var j = 512; j >= 0; j -= 8) g.lineTo(j, b[1] + 40 + Math.sin(j / 512 * Math.PI * 4) * 16);
+      g.closePath(); g.fill();
+    });
+    var ball = new THREE.Mesh(new THREE.SphereGeometry(0.11, 28, 20), new THREE.MeshStandardMaterial({ map: canvasTex(c), roughness: 0.45 }));
+    ball.castShadow = true; ball.visible = false;
+    R.scene.add(ball); R.ball = ball;
+  }
+
+  /* ---------- rule lines, arrows, marker ---------- */
+  var SEG_GEO = null;
+  function segMesh(color, opacity, y) {
+    if (!SEG_GEO) { SEG_GEO = new THREE.PlaneGeometry(1, 1); SEG_GEO.rotateX(-Math.PI / 2); }
+    var m = new THREE.Mesh(SEG_GEO, new THREE.MeshBasicMaterial({ color: col(color), transparent: true, opacity: opacity, depthWrite: false }));
+    m.position.y = y; return m;
+  }
+  function setSeg(m, ax, az, bx, bz, w) {
+    var dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz);
+    m.position.x = (ax + bx) / 2; m.position.z = (az + bz) / 2;
+    m.scale.set(Math.max(len, 0.001), 1, w);
+    m.rotation.y = -Math.atan2(dz, dx);
+  }
+  function buildRules() {
+    R.rules = D.RELATIONS.map(function () {
+      var o = segMesh('#06101A', 0.5, 0.009), c = segMesh('#2FD07A', 1, 0.011);
+      R.scene.add(o); R.scene.add(c);
+      return { o: o, c: c, tag: makeTag(2.7) };
+    });
+  }
+
+  /* ---------- guides: legal zone, position lines, fault tags, fix ring ---------- */
+  var COL_OK, COL_BAD, COL_WHITE;
+  var TAG_OK = 'rgba(16,96,58,0.94)', TAG_BAD = 'rgba(190,24,52,0.96)', TAG_INK = 'rgba(9,18,28,0.9)';
+  function makeTag(w) {
+    var c = document.createElement('canvas'); c.width = 512; c.height = 112;
+    var t = canvasTex(c);
+    var s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true }));
+    s.scale.set(w, w * 112 / 512, 1); s.renderOrder = 998; s.visible = false;
+    R.scene.add(s);
+    return { s: s, c: c, t: t, key: '' };
+  }
+  function setTag(tag, text, bg) {
+    if (tag.key === text + bg) return;
+    tag.key = text + bg;
+    var g = tag.c.getContext('2d');
+    g.clearRect(0, 0, 512, 112);
+    g.font = '700 50px "Barlow Condensed", "Arial Narrow", sans-serif';
+    var w = Math.min(500, g.measureText(text).width + 48);
+    g.fillStyle = bg; roundRect(g, (512 - w) / 2, 12, w, 88, 44); g.fill();
+    g.fillStyle = '#FFFFFF'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(text, 256, 58);
+    tag.t.needsUpdate = true;
+  }
+  function buildGuides() {
+    COL_OK = col('#2FD07A'); COL_BAD = col('#FF3B5C'); COL_WHITE = col('#FFFFFF');
+    var box = segMesh('#36E88A', 0.36, 0.006); R.scene.add(box);
+    var edges = [0, 1, 2, 3].map(function () { var e = segMesh('#2FD07A', 0.95, 0.007); R.scene.add(e); return e; });
+    var lines = [0, 1, 2].map(function () { var m = segMesh('#2FD07A', 0.9, 0.0085); R.scene.add(m); return { m: m, tag: makeTag(2.3) }; });
+    var fixLine = segMesh('#FFFFFF', 0.9, 0.0095); R.scene.add(fixLine);
+    var fixRing = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.29, 36).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: COL_OK, transparent: true, depthWrite: false }));
+    fixRing.position.y = 0.013; R.scene.add(fixRing);
+    R.guides = { box: box, edges: edges, lines: lines, fixLine: fixLine, fixRing: fixRing, fixTag: makeTag(2.5) };
+  }
+  // Whose legal zone is drawn: the selected player, the one being dragged, or the quiz answer.
+  function guideFocus(panel) {
+    if (!R || state.action || (!panel && state.cam === 'joueur')) return null;
+    if (state.mode === 'quiz') { var q = state.quiz.q; return state.quiz.answered && q && q.phase === 'service' ? q.id : null; }
+    if (!state.rules) return null;
+    if (state.mode === 'rotations') return state.phase === 'service' ? state.sel : null;
+    if (hideFaults()) return state.fq.probe;
+    return state.dragging || state.sel;
+  }
+  function livePos(id) { var p = P3[id]; return p ? [p.x, p.z] : [0, 0]; }
+  function guidePosFn() {
+    if (state.mode !== 'rotations') return livePos;
+    var d = displayPositions();
+    return function (id) { return d[id]; };
+  }
+  function updateGuides() {
+    var G = R.guides, id = guideFocus(), posOf = guidePosFn();
+    var box = id && P3[id] ? D.legalBox(state.rot, state.sit, id, posOf) : null;
+    var show = !!(box && !box.empty);
+    G.box.visible = show;
+    G.edges.forEach(function (e) { e.visible = show; });
+    if (show) {
+      G.box.position.set((box.xmin + box.xmax) / 2, 0.006, (box.zmin + box.zmax) / 2);
+      G.box.scale.set(box.xmax - box.xmin, 1, box.zmax - box.zmin);
+      var c = [[box.xmin, box.zmin], [box.xmax, box.zmin], [box.xmax, box.zmax], [box.xmin, box.zmax]];
+      G.edges.forEach(function (e, i) { var a = c[i], b = c[(i + 1) % 4]; setSeg(e, a[0], a[1], b[0], b[1], 0.035); });
+    }
+    G.lines.forEach(function (L, i) {
+      var b = box && box.bounds[i];
+      L.m.visible = L.tag.s.visible = !!b;
+      if (!b) return;
+      // tags sit in the free zone: right side for depth lines (the bench is on the left), behind the end line for side lines
+      if (b.axis === 'z') { setSeg(L.m, -4.5, b.value, 4.5, b.value, 0.06); L.tag.s.position.set(5.7, 0.3, b.value); }
+      else { setSeg(L.m, b.value, 0, b.value, 9, 0.06); L.tag.s.position.set(b.value, 0.3, 9.45); }
+      L.m.material.color.copy(b.ok ? COL_OK : COL_BAD);
+      setTag(L.tag, D.boundText(b), b.ok ? TAG_OK : TAG_BAD);
+    });
+    var p = id && posOf(id), to = show && !box.ok ? D.nearestLegal(box, p, 0.3) : null;
+    G.fixLine.visible = G.fixRing.visible = G.fixTag.s.visible = !!to;
+    if (to) {
+      setSeg(G.fixLine, p[0], p[1], to[0], to[1], 0.045);
+      G.fixRing.position.set(to[0], 0.013, to[1]);
+      G.fixTag.s.position.set(to[0], 0.2, to[1] + 0.45);
+      setTag(G.fixTag, D.fixText(p, to), TAG_INK);
+    }
+  }
+  function buildMarker() {
+    var g = new THREE.Group();
+    var ring = new THREE.Mesh(new THREE.RingGeometry(0.22, 0.3, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: col('#FFFFFF'), transparent: true, depthWrite: false }));
+    ring.position.y = 0.015; g.add(ring);
+    var a = segMesh('#FFFFFF', 1, 0.016), b = segMesh('#FFFFFF', 1, 0.016);
+    setSeg(a, -0.2, -0.2, 0.2, 0.2, 0.05); setSeg(b, -0.2, 0.2, 0.2, -0.2, 0.05);
+    g.add(a); g.add(b);
+    g.visible = false; R.scene.add(g); R.marker = g; R.markerMats = [ring.material, a.material, b.material];
+  }
+  function showMarker(x, z, color) {
+    if (!R) return;
+    R.marker.position.set(x, 0, z); R.marker.visible = true;
+    R.markerMats.forEach(function (m) { m.color = col(color); });
+  }
+
+  function buildArrows() {
+    if (!R) return;
+    while (R.arrows.children.length) { var ch = R.arrows.children.pop(); if (ch.material) ch.material.dispose(); }
+    if (!state.arrows || state.mode !== 'rotations' || state.phase !== 'service' || state.action) return;
+    var f = D.F[state.rot][state.sit];
+    Object.keys(f.service).forEach(function (id) {
+      var a = f.service[id], b = f.jeu[id];
+      var dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
+      if (len < 0.6) return;
+      var sel = id === state.sel, op = sel ? 0.95 : 0.42, w = sel ? 0.075 : 0.05;
+      var ux = dx / len, uz = dz / len, s0 = 0.5, s1 = len - 0.42;
+      for (var t = s0; t < s1 - 0.12; t += 0.32) {
+        var e = Math.min(t + 0.18, s1 - 0.1);
+        var m = segMesh('#FFFFFF', op, 0.008);
+        setSeg(m, a[0] + ux * t, a[1] + uz * t, a[0] + ux * e, a[1] + uz * e, w);
+        R.arrows.add(m);
+      }
+      var shape = new THREE.Shape();
+      shape.moveTo(0, 0); shape.lineTo(-0.3, 0.16); shape.lineTo(-0.3, -0.16); shape.closePath();
+      var hg = new THREE.ShapeGeometry(shape); hg.rotateX(-Math.PI / 2);
+      var head = new THREE.Mesh(hg, new THREE.MeshBasicMaterial({ color: col('#FFFFFF'), transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide }));
+      head.position.set(a[0] + ux * (s1 + 0.05), 0.008, a[1] + uz * (s1 + 0.05));
+      head.rotation.y = -Math.atan2(uz, ux);
+      R.arrows.add(head);
+    });
+  }
+
+  /* ---------- movement ---------- */
+  function moveTo(p, x, z, dur, delay) {
+    var now = performance.now();
+    if (reduced) { dur = 0.01; delay = 0; }
+    p.tw = { fx: p.x, fz: p.z, tx: x, tz: z, t0: now + (delay || 0) * 1000, dur: Math.max(10, (dur == null ? 0.7 : dur) * 1000) };
+  }
+  function stepTweens(now) {
+    var all = D.IDS.map(function (id) { return P3[id]; }).concat(O3);
+    all.forEach(function (p) {
+      if (p.tw) {
+        var t = (now - p.tw.t0) / p.tw.dur;
+        if (t >= 0) {
+          var k = ease(Math.min(1, t));
+          p.x = p.tw.fx + (p.tw.tx - p.tw.fx) * k; p.z = p.tw.fz + (p.tw.tz - p.tw.fz) * k;
+          if (t >= 1) p.tw = null;
+        }
+      }
+      placeFig(p);
+    });
+  }
+
+  /* ---------- camera ---------- */
+  var CAMS = {
+    tribune: { pos: [5.8, 10.8, 16.2], tgt: [0, 0.2, 3.4] },
+    dessus: { pos: [0, 22.5, 4.66], tgt: [0, 0, 4.6] }
+  };
+  function camPreset(name) {
+    var c = CAMS[name], aspect = R.camera.aspect, f = aspect < 0.8 ? 1.22 : aspect < 1.25 ? 1.08 : 1;
+    var t = c.tgt.slice(), p = c.pos, sx = aspect < 0.8 && name === 'tribune' ? -0.6 : 0;
+    t[0] += sx;
+    return { pos: [t[0] + (p[0] - c.tgt[0]) * f, t[1] + (p[1] - t[1]) * f, t[2] + (p[2] - t[2]) * f], tgt: t };
+  }
+  function setCam(name, instant) {
+    state.cam = name;
+    $$('#seg-cam button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.cam === name)); });
+    if (!R) return;
+    D.IDS.forEach(function (id) { applyVisibility(P3[id]); P3[id].label.visible = name !== 'joueur'; });
+    if (name === 'joueur') { R.controls.enabled = false; R.camTween = null; return; }
+    R.controls.enabled = true;
+    var pr = camPreset(name);
+    if (instant || reduced) {
+      R.camera.position.set(pr.pos[0], pr.pos[1], pr.pos[2]); R.controls.target.set(pr.tgt[0], pr.tgt[1], pr.tgt[2]);
+      R.camTween = null; return;
+    }
+    R.camTween = { t0: performance.now(), dur: 850,
+      fp: R.camera.position.clone(), ft: R.controls.target.clone(),
+      tp: new THREE.Vector3(pr.pos[0], pr.pos[1], pr.pos[2]), tt: new THREE.Vector3(pr.tgt[0], pr.tgt[1], pr.tgt[2]) };
+  }
+  function stepCam(now) {
+    if (state.cam === 'joueur') {
+      // over the shoulder: just behind and above the player, looking across the net
+      var p = P3[povId()];
+      if (p) {
+        R.camera.position.set(p.x * 0.92, 2.75 + p.y * 0.5, p.z + 3.6);
+        R.camera.lookAt(p.x * 0.55, 1.05, p.z - 7);
+      }
+      return;
+    }
+    if (R.camTween) {
+      var t = Math.min(1, (now - R.camTween.t0) / R.camTween.dur), k = ease(t);
+      R.camera.position.lerpVectors(R.camTween.fp, R.camTween.tp, k);
+      R.controls.target.lerpVectors(R.camTween.ft, R.camTween.tt, k);
+      if (t >= 1) R.camTween = null;
+    }
+    R.controls.update();
+  }
+  function povId() {
+    if (state.mode === 'quiz' && state.quiz.q) return state.quiz.q.id;
+    return state.sel;
+  }
+  function applyVisibility(p) {
+    p.group.visible = !p.hidden;
+  }
+
+  /* ---------- rule lines update ---------- */
+  function updateRules() {
+    if (!R) return;
+    // Rotations mode judges the formation itself, so lines stay honest while players are still moving.
+    var show = rulesVisible(), focus = focusId();
+    var chk = show ? (state.mode === 'rotations' ? formationCheck() : liveCheck()) : null, badIds = {};
+    R.rules.forEach(function (r, i) {
+      var rel = chk && chk.rels[i];
+      var vis = !!(rel && !rel.exempt);
+      if (vis && state.mode === 'quiz') vis = rel.ida === focus || rel.idb === focus;
+      r.o.visible = r.c.visible = vis;
+      r.tag.s.visible = vis && !rel.ok;
+      if (!vis) return;
+      var a = P3[rel.ida], b = P3[rel.idb], bad = !rel.ok;
+      var strong = bad || !focus || rel.ida === focus || rel.idb === focus;
+      setSeg(r.o, a.x, a.z, b.x, b.z, bad ? 0.26 : strong ? 0.17 : 0.11);
+      setSeg(r.c, a.x, a.z, b.x, b.z, bad ? 0.13 : strong ? 0.08 : 0.045);
+      r.c.material.color.copy(bad ? COL_BAD : COL_OK);
+      r.c.material.opacity = strong ? 1 : 0.45;
+      r.o.material.opacity = strong ? 0.5 : 0.25;
+      if (!bad) return;
+      // the broken rule, written on the red link: "L devant R4·2"
+      badIds[rel.ida] = badIds[rel.idb] = true;
+      r.tag.s.position.set((a.x + b.x) / 2, 1.55, (a.z + b.z) / 2);
+      setTag(r.tag, D.PLAYERS[rel.idb].code + (rel.type === 'depth' ? ' devant ' : ' à gauche de ') + D.PLAYERS[rel.ida].code, TAG_BAD);
+    });
+    R.badIds = badIds;
+  }
+  function rulesVisible() {
+    if (state.action) return false;
+    if (state.mode === 'quiz') return state.quiz.answered && state.quiz.q && state.quiz.q.phase === 'service';
+    if (hideFaults()) return false;
+    if (!state.rules) return false;
+    if (state.mode === 'libre') return true;
+    return state.phase === 'service';
+  }
+  function focusId() {
+    if (state.mode === 'quiz') return state.quiz.q ? state.quiz.q.id : null;
+    return state.sel;
+  }
+  function liveCheck() {
+    return D.check(state.rot, state.sit, function (id) { var p = P3[id]; return p ? [p.x, p.z] : [0, 0]; });
+  }
+  function formationCheck() {
+    var pos = displayPositions();
+    return D.check(state.rot, state.sit, function (id) { return pos[id]; });
+  }
+
+  /* ---------- render loop ---------- */
+  var lastFaultSig = '';
+  function frame(now) {
+    if (state.action) stepAction(now); else stepTweens(now);
+    stepCam(now);
+    updateRules();
+    updateGuides();
+    if (state.mode === 'libre') {
+      var sig = D.IDS.map(function (id) { return P3[id].x.toFixed(2) + ',' + P3[id].z.toFixed(2); }).join('|');
+      if (sig !== lastFaultSig) { lastFaultSig = sig; renderLibre(); renderStatus(); }
+    }
+    var s = 1 + Math.sin(now / 260) * 0.06, badRing = R.badIds || {};
+    D.IDS.forEach(function (id) {
+      var p = P3[id], sel = id === focusOrSel();
+      p.ring.material.color.copy(badRing[id] ? COL_BAD : COL_WHITE);
+      p.ring.material.opacity = sel || badRing[id] ? 0.95 : 0.38;
+      p.ring.scale.setScalar(sel ? s * 1.12 : 1);
+    });
+    R.renderer.render(R.scene, R.camera);
+    requestAnimationFrame(frame);
+  }
+  function focusOrSel() { return state.mode === 'quiz' ? (state.quiz.answered && state.quiz.q ? state.quiz.q.id : '') : state.sel; }
+
+  /* ======================= ACTION (animated rally) ======================= */
+  function Track(x, z) { this.k = [{ t: 0, x: x, z: z }]; }
+  Track.prototype.move = function (t0, t1, x, z) {
+    var l = this.k[this.k.length - 1];
+    this.k.push({ t: t0, x: l.x, z: l.z }, { t: t1, x: x, z: z });
+    return this;
+  };
+  Track.prototype.at = function (t) {
+    var k = this.k;
+    if (t <= k[0].t) return [k[0].x, k[0].z];
+    for (var i = 1; i < k.length; i++) {
+      if (t <= k[i].t) {
+        var a = k[i - 1], b = k[i], span = b.t - a.t, u = span > 0 ? (t - a.t) / span : 1, e = ease(u);
+        return [a.x + (b.x - a.x) * e, a.z + (b.z - a.z) * e];
+      }
+    }
+    var l = k[k.length - 1]; return [l.x, l.z];
+  };
+
+  function buildAction(rot, sit) {
+    var f = D.F[rot][sit], zm = D.zonesOnCourt(rot, sit), on = [];
+    for (var z = 1; z <= 6; z++) on.push(zm[z]);
+    var front = function (id) { return D.isFront(D.zoneOf(zm, id)); };
+    var T = {}, OT = {}, jumps = [], ball = [], caps = [], dur;
+    on.forEach(function (id) { var p = f.service[id]; T[id] = new Track(p[0], p[1]); });
+    D.OPP[sit].forEach(function (p, i) { OT[i] = new Track(p[0], p[1]); });
+    function seg(t0, t1, p0, c, p1) { ball.push({ t0: t0, t1: t1, p0: p0, c: c, p1: p1 }); }
+    var oh = on.filter(function (id) { return (id === 'R41' || id === 'R42') && front(id); })[0];
+    var mc = on.filter(function (id) { return (id === 'C1' || id === 'C2') && front(id); })[0];
+    var tg = D.TARGET;
+
+    if (sit === 'recoit') {
+      var TS = 0.55, TP = 1.65, TSET = 2.6, THIT = 3.45, TL = 3.8;
+      dur = 4.7;
+      on.forEach(function (id) {
+        var j = f.jeu[id];
+        if (id === oh) {
+          T[id].move(TP, TP + 0.85, j[0], j[1]).move(TSET + 0.1, THIT, -3.3, 1.0);
+          jumps.push({ id: id, t0: THIT - 0.42, t1: THIT + 0.38, h: 0.85 });
+        } else if (id === 'R41' || id === 'R42' || id === 'L') {
+          T[id].move(TP + 0.05, TP + 0.95, j[0], j[1]);
+        } else if (id === 'P') {
+          T[id].move(TS, TS + 1.0, j[0], j[1]);
+        } else if (id === mc) {
+          T[id].move(TS + 0.1, TS + 0.9, j[0], j[1]).move(TP + 0.35, TSET, 0.45, 1.0);
+          jumps.push({ id: id, t0: TSET - 0.3, t1: TSET + 0.35, h: 0.8 });
+        } else {
+          T[id].move(TS + 0.1, TS + 1.0, j[0], j[1]);
+        }
+      });
+      var sv = D.OPP.recoit[0], Lp = f.service.L, rc = [Lp[0], 0.85, Lp[1]];
+      var hit = [sv[0], 3.35, sv[1] + 0.25];
+      seg(0, TS, [sv[0] - 0.34, 1.02, sv[1] + 0.12], [sv[0] - 0.1, 3.9, sv[1] + 0.2], hit);
+      seg(TS, TP, hit, [(sv[0] + rc[0]) / 2, 4.8, (sv[1] + rc[2]) / 2], rc);
+      var st = [tg[0], 2.75, tg[1] + 0.1];
+      seg(TP, TSET, rc, [(rc[0] + st[0]) / 2, 6.2, (rc[2] + st[2]) / 2], st);
+      var ap = [-3.3, 3.2, 0.6];
+      seg(TSET, THIT, st, [-1.0, 5.4, 0.65], ap);
+      var land = [1.9, 0.11, -6.3];
+      seg(THIT, TL, ap, [-0.7, 2.4, -2.8], land);
+      seg(TL, TL + 0.6, land, [2.25, 1.3, -7.35], [2.6, 0.11, -8.4]);
+      OT[0].move(TS + 0.2, TS + 1.5, -2.4, -7.0);
+      OT[1].move(2.75, 3.2, -3.3, -0.45); OT[2].move(2.75, 3.2, -2.45, -0.45);
+      jumps.push({ opp: 1, t0: 3.25, t1: 3.8, h: 0.75 }, { opp: 2, t0: 3.25, t1: 3.8, h: 0.75 });
+      caps.push([0, 'Service adverse'], [TS, 'Frappe : le passeur file à la cible'], [TP, 'Réception du libéro'],
+        [TSET, 'Passe vers ' + D.PLAYERS[oh].code + ' à gauche'], [THIT - 0.15, 'Attaque !'], [TL + 0.25, 'Point pour nous']);
+    } else {
+      var S0 = 0.6, SR = 1.7, SSET = 2.65, SHIT = 3.5, SD = 3.85, SE = 4.75;
+      dur = 5.35;
+      var server = zm[1];
+      var rf = on.filter(function (id) { return (id === 'P' || id === 'PT') && front(id); })[0];
+      var d5 = on.filter(function (id) { var j = f.jeu[id]; return j[0] < -2 && j[1] > 5; })[0];
+      on.forEach(function (id) {
+        var j = f.jeu[id];
+        if (id === server) T[id].move(S0 + 0.15, S0 + 1.45, j[0], j[1]);
+        else T[id].move(S0 + 0.05, S0 + 1.0, j[0], j[1]);
+      });
+      T[rf].move(2.85, 3.25, 3.35, 0.45);
+      T[mc].move(2.85, 3.25, 2.55, 0.45);
+      jumps.push({ id: rf, t0: 3.3, t1: 3.85, h: 0.75 }, { id: mc, t0: 3.3, t1: 3.85, h: 0.75 });
+      T[d5].move(3.45, 3.8, -2.75, 6.55);
+      T.P.move(rf === 'P' ? 3.95 : 3.8, 4.6, tg[0], tg[1] + 0.2);
+      var sp = D.SERVE_SPOT, shit = [sp[0], 3.45, sp[1] - 0.25];
+      seg(0, S0, [sp[0] + 0.34, 1.02, sp[1] - 0.12], [sp[0] + 0.1, 4.0, sp[1] - 0.2], shit);
+      var orc = [D.OPP.sert[1][0], 0.85, D.OPP.sert[1][1]];
+      seg(S0, SR, shit, [(sp[0] + orc[0]) / 2, 4.8, (sp[1] + orc[2]) / 2], orc);
+      var ost = [-1.3, 2.75, -0.75];
+      seg(SR, SSET, orc, [-0.65, 6.0, -3.5], ost);
+      var oap = [3.25, 3.2, -0.6];
+      seg(SSET, SHIT, ost, [1.0, 5.3, -0.65], oap);
+      var dig = [-2.75, 0.85, 6.55];
+      seg(SHIT, SD, oap, [0.25, 2.5, 2.9], dig);
+      seg(SD, SE, dig, [-0.7, 6.2, 3.7], [tg[0], 2.85, tg[1] + 0.25]);
+      OT[2].move(SR + 0.1, SSET, 3.6, -3.4).move(SSET + 0.1, SHIT, 3.25, -1.0);
+      jumps.push({ opp: 2, t0: SHIT - 0.42, t1: SHIT + 0.38, h: 0.85 });
+      OT[3].move(SR, SR + 0.6, -1.3, -0.7);
+      caps.push([0, 'Notre service'], [S0, 'Frappe : chacun permute vers son poste'], [SR, 'Réception adverse'],
+        [SSET, 'Passe adverse'], [3.2, 'Contre à deux'], [SD, 'Défense en zone 5'], [SE - 0.15, 'Contre-attaque']);
+    }
+    return { T: T, OT: OT, jumps: jumps, ball: ball, caps: caps, dur: dur };
+  }
+
+  function bez(s, u) {
+    var v = 1 - u;
+    return [v * v * s.p0[0] + 2 * v * u * s.c[0] + u * u * s.p1[0],
+            v * v * s.p0[1] + 2 * v * u * s.c[1] + u * u * s.p1[1],
+            v * v * s.p0[2] + 2 * v * u * s.c[2] + u * u * s.p1[2]];
+  }
+
+  function playAction() {
+    if (!R || state.mode !== 'rotations') return;
+    stopAction(true);
+    state.phase = 'service';
+    var plan = buildAction(state.rot, state.sit);
+    D.IDS.forEach(function (id) {
+      var p = P3[id], pos = D.F[state.rot][state.sit].service[id] || D.BENCH;
+      p.tw = null; p.x = pos[0]; p.z = pos[1]; p.y = 0; placeFig(p);
+    });
+    D.OPP[state.sit].forEach(function (p, i) { O3[i].tw = null; O3[i].x = p[0]; O3[i].z = p[1]; O3[i].y = 0; });
+    state.action = { plan: plan, t0: performance.now(), last: -1 };
+    R.ball.visible = true;
+    buildArrows();
+    renderAll();
+  }
+
+  function stepAction(now) {
+    var a = state.action, plan = a.plan;
+    var t = reduced ? plan.dur : (now - a.t0) / 1000 * state.speed;
+    Object.keys(plan.T).forEach(function (id) {
+      var q = plan.T[id].at(t), p = P3[id]; p.x = q[0]; p.z = q[1]; p.y = 0;
+    });
+    Object.keys(plan.OT).forEach(function (i) {
+      var q = plan.OT[i].at(t), o = O3[i]; o.x = q[0]; o.z = q[1]; o.y = 0;
+    });
+    plan.jumps.forEach(function (j) {
+      if (t < j.t0 || t > j.t1) return;
+      var h = j.h * Math.sin(Math.PI * (t - j.t0) / (j.t1 - j.t0));
+      if (j.id) P3[j.id].y = h; else O3[j.opp].y = h;
+    });
+    D.IDS.forEach(function (id) { placeFig(P3[id]); });
+    O3.forEach(placeFig);
+    var segs = plan.ball, bp = null;
+    for (var i = 0; i < segs.length; i++) {
+      if (t >= segs[i].t0 && t <= segs[i].t1) { bp = bez(segs[i], (t - segs[i].t0) / (segs[i].t1 - segs[i].t0)); break; }
+    }
+    if (!bp) bp = t < segs[0].t0 ? segs[0].p0 : segs[segs.length - 1].p1;
+    R.ball.position.set(bp[0], bp[1], bp[2]);
+    R.ball.rotation.x += 0.12; R.ball.rotation.z += 0.05;
+    var cap = '';
+    plan.caps.forEach(function (c) { if (t >= c[0]) cap = c[1]; });
+    setCaption(cap, false);
+    if (t >= plan.dur) {
+      state.action = null;
+      state.phase = 'jeu';
+      R.ball.visible = false;
+      placeAll(0.6);
+      renderAll();
+    }
+  }
+
+  function stopAction(silent) {
+    if (!state.action) return;
+    state.action = null;
+    if (R) R.ball.visible = false;
+    if (!silent) { placeAll(0.5); renderAll(); }
+  }
+
+  /* ======================= placement ======================= */
+  function currentZones() {
+    return D.zonesOnCourt(state.rot, state.sit);
+  }
+  function displayPositions() {
+    var q = state.quiz.q;
+    if (state.mode === 'quiz' && q) {
+      var ph = state.quiz.answered && q.phase === 'jeu' ? 'jeu' : 'service';
+      var out = {};
+      D.IDS.forEach(function (id) { out[id] = D.F[q.rot][q.sit][ph][id] || D.BENCH; });
+      return out;
+    }
+    var phase = state.mode === 'libre' ? 'service' : state.phase, res = {};
+    D.IDS.forEach(function (id) {
+      var p = D.F[state.rot][state.sit][phase][id] || D.BENCH;
+      if (state.mode === 'libre' && state.libre && state.libre[id]) p = state.libre[id];
+      res[id] = p;
+    });
+    return res;
+  }
+  function placeAll(dur) {
+    if (!R) return;
+    var pos = displayPositions();
+    D.IDS.forEach(function (id) {
+      var p = P3[id], t = pos[id];
+      if (Math.hypot(p.x - t[0], p.z - t[1]) > 0.01) moveTo(p, t[0], t[1], dur);
+      p.y = 0;
+    });
+    var opp = D.OPP[state.sit];
+    O3.forEach(function (o, i) { moveTo(o, opp[i][0], opp[i][1], dur); o.y = 0; });
+    if (R.ball && !state.action) R.ball.visible = false;
+    if (!state.action && state.mode === 'rotations' && state.phase === 'service') {
+      var hold = state.sit === 'sert' ? [D.SERVE_SPOT[0] + 0.34, 1.02, D.SERVE_SPOT[1] - 0.12] : [opp[0][0] - 0.34, 1.02, opp[0][1] + 0.12];
+      R.ball.position.set(hold[0], hold[1], hold[2]); R.ball.visible = true;
+    }
+    D.IDS.forEach(function (id) { applyVisibility(P3[id]); });
+    buildArrows(); drawLabels();
+  }
+
+  /* ======================= UI rendering ======================= */
+  function setCaption(text, soft) {
+    var el = $('#caption');
+    el.textContent = text ? fr(text) : '';
+    el.classList.toggle('soft', !!soft);
+  }
+
+  function renderStatus() {
+    var st = $('#status'), lg = $('#legal');
+    lg.className = 'chip';
+    if (state.mode === 'quiz') {
+      st.textContent = fr('Quiz · ' + ROLE_LABEL[state.quiz.role]);
+      var r = state.quiz.res;
+      if (state.quiz.answered && r) {
+        lg.textContent = r.title; lg.classList.add(r.level === 'faute' ? 'fault' : r.level === 'loin' ? 'warn' : 'ok');
+        lg.hidden = false;
+      } else lg.hidden = true;
+      return;
+    }
+    var phase = state.action ? 'Action en cours' : state.mode === 'libre' ? (state.sub === 'find' ? 'Trouve la faute' : 'Bac à sable') : PHASE_LABEL[state.phase];
+    st.textContent = fr(state.rot + ' · ' + SIT_LABEL[state.sit] + ' · ' + phase);
+    lg.hidden = false;
+    if (state.action) { lg.hidden = true; return; }
+    if (state.mode === 'rotations' && state.phase === 'jeu') {
+      lg.innerHTML = 'Après la frappe<span class="hide-sm">&nbsp;: déplacements libres</span>'; return;
+    }
+    var chk = state.mode === 'libre' && R ? liveCheck() : formationCheck();
+    var n = chk.faults.length;
+    lg.innerHTML = n ? (n + (n === 1 ? ' faute' : ' fautes') + '<span class="hide-sm"> de position</span>')
+      : '<span class="hide-sm">Placement </span>réglementaire';
+    lg.classList.add(n ? 'fault' : 'ok');
+  }
+
+  function renderRotPanel() {
+    var strip = $('#rotstrip');
+    if (!strip.children.length) {
+      D.ORDER.forEach(function (rot, i) {
+        var b = document.createElement('button');
+        b.type = 'button'; b.dataset.rot = rot; b.id = 'rot-' + rot;
+        b.setAttribute('aria-label', 'Rotation ' + (i + 1) + ', passeur en zone ' + rot.slice(1));
+        b.innerHTML = '<b>' + rot + '</b><small>rot. ' + (i + 1) + '</small>';
+        b.addEventListener('click', function () { setRot(rot); });
+        strip.appendChild(b);
+      });
+    }
+    $$('#rotstrip button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.rot === state.rot)); });
+    $$('#seg-sit button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.sit === state.sit)); });
+    $$('#seg-phase button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.phase === state.phase)); });
+    $('#field-phase').hidden = state.mode !== 'rotations';
+    $('#btn-play').textContent = state.action ? '■ Arrêter' : (state.phase === 'jeu' ? "↺ Rejouer l'action" : "▶ Jouer l'action");
+    $('#btn-play').disabled = !R;
+    $('#btn-speed').textContent = 'Vitesse ' + (state.speed === 1 ? '1×' : '0,5×');
+  }
+
+  function renderInfo() {
+    var rot = state.rot, sit = state.sit, info = D.INFO[rot], zm = currentZones();
+    $('#rot-eyebrow').textContent = fr('Rotation ' + (D.ORDER.indexOf(rot) + 1) + ' sur 6 · ' + SIT_LABEL[sit]);
+    $('#rot-title').textContent = rot + ' · ' + info.titre;
+    var front = [4, 3, 2].map(function (z) { return D.PLAYERS[zm[z]].code; }).join(', ');
+    var back = [5, 6, 1].map(function (z) { return D.PLAYERS[zm[z]].code; }).join(', ');
+    $('#rot-front').textContent = fr('Avants : ' + front + ' · Arrières : ' + back);
+    $('#rot-text').textContent = fr(info[sit]);
+    var chk = state.mode === 'libre' && R && !hideFaults() ? liveCheck() : null;
+    var bad = {};
+    if (chk) chk.faults.forEach(function (f) { f.ids.forEach(function (id) { bad[id] = true; }); });
+    var list = $('#plist'); list.innerHTML = '';
+    var order = [4, 3, 2, 5, 6, 1].map(function (z) { return zm[z]; });
+    order.push(D.offCourt(rot, sit));
+    order.forEach(function (id) {
+      var z = D.zoneOf(zm, id), pl = D.PLAYERS[id];
+      var li = document.createElement('li');
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'prow' + (z ? '' : ' off') + (bad[id] ? ' bad' : '');
+      b.setAttribute('aria-pressed', String(state.sel === id));
+      b.innerHTML = '<span class="jersey' + (id === 'L' ? ' libero' : '') + '">' + pl.num + '</span>' +
+        '<span class="pmain"><span class="pname">' + pl.code + '<small>' + pl.nom + '</small></span>' +
+        '<span class="pdest"></span></span>' +
+        '<span class="zbadge">' + (z ? 'Z' + z : 'Banc') + '</span>';
+      b.querySelector('.pdest').textContent = fr(D.destText(rot, sit, id));
+      b.addEventListener('click', function () { select(id); });
+      li.appendChild(b); list.appendChild(li);
+    });
+    renderNeighbors();
+  }
+
+  // True while a "Trouve la faute" situation is unsolved: nothing may give the answer away.
+  function hideFaults() { return state.mode === 'libre' && state.sub === 'find' && !state.fq.found; }
+
+  function renderLibre() {
+    if (state.mode !== 'libre') return;
+    var fq = state.fq, find = state.sub === 'find';
+    var chk = R ? liveCheck() : null;
+    if (find && fq.found && !fq.fixed && chk && !chk.faults.length) { fq.fixed = true; idleCaption(); }
+    var ul = $('#fault-list'); ul.innerHTML = '';
+    if (chk && !find) {
+      var items = chk.faults.length ? chk.faults.map(function (f) { return f.msg; }) : ['Aucune faute : ce placement est réglementaire.'];
+      items.forEach(function (t) {
+        var li = document.createElement('li'); li.textContent = fr(t);
+        if (!chk.faults.length) li.className = 'ok';
+        ul.appendChild(li);
+      });
+    }
+    var bad = {};
+    if (chk && !hideFaults()) chk.faults.forEach(function (f) { f.ids.forEach(function (id) { bad[id] = true; }); });
+    var zm = currentZones(), order = [4, 3, 2, 5, 6, 1].map(function (z) { return zm[z]; }).concat([D.offCourt(state.rot, state.sit)]);
+    $$('#plist .prow').forEach(function (b, i) { b.classList.toggle('bad', !!bad[order[i]]); });
+    renderNeighbors();
+    renderFind();
+  }
+
+  function renderNeighbors() {
+    var f = $('#nb-field'), id = guideFocus(true);
+    var box = id ? D.legalBox(state.rot, state.sit, id, guidePosFn()) : null;
+    f.hidden = !box || state.mode === 'quiz';
+    if (f.hidden) return;
+    var pl = D.PLAYERS[id];
+    $('#nb-title').textContent = fr(box.server ? pl.code + ' sert' : 'Les lignes de ' + pl.code + ' · zone ' + box.zone);
+    var rows = box.server ? [{ t: 'Derrière la ligne de fond, entre les lignes de côté', ok: box.inCourt }]
+      : box.bounds.map(function (b) { return { t: D.boundText(b, true), ok: b.ok }; }).concat([{ t: 'Les pieds dans le terrain', ok: box.inCourt }]);
+    var ul = $('#nb-list'); ul.innerHTML = '';
+    rows.forEach(function (r) {
+      var li = document.createElement('li'); li.className = r.ok ? 'ok' : '';
+      li.textContent = fr(r.t + (r.ok ? '' : ' : faute')); ul.appendChild(li);
+    });
+  }
+
+  function renderFind() {
+    var fq = state.fq, sc = fq.sc, find = state.sub === 'find';
+    $$('#seg-sub button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.sub === state.sub)); });
+    $('#find-box').hidden = !find;
+    $('#sandbox-box').hidden = find;
+    $('#btn-fnext').hidden = !find;
+    $('#btn-reset').hidden = find && !fq.found;
+    $('#btn-fnext').className = 'btn grow' + (fq.found ? ' primary' : '');
+    if (!find || !sc) return;
+    $('#f-eyebrow').textContent = 'Situation ' + fq.n;
+    $('#f-title').textContent = fr(sc.rot + ' · ' + SIT_LABEL[sc.sit]);
+    var title = '', cls = 'ok', lines = [];
+    if (fq.fixed) { title = 'Corrigé'; lines = ['Placement réglementaire : chaque joueur respecte ses voisins.']; }
+    else if (fq.found) {
+      title = fq.tries === 1 ? 'Trouvé du premier coup' : 'Trouvé';
+      lines = [sc.msg, D.PLAYERS[sc.moved].code + ' a franchi la ligne. Glisse-le dans sa zone verte pour corriger.'];
+    } else if (fq.probe) {
+      cls = 'warn'; title = 'Pas lui';
+      lines = [D.PLAYERS[fq.probe].code + ' respecte ses voisins : il est bien dans sa zone verte.', 'Cherche encore : une seule paire de joueurs est en faute.'];
+    }
+    var fb = $('#f-feedback');
+    fb.hidden = !title;
+    fb.className = 'feedback ' + cls;
+    $('#f-fb-title').textContent = fr(title);
+    var ul = $('#f-fb-lines'); ul.innerHTML = '';
+    lines.forEach(function (l) { var li = document.createElement('li'); li.textContent = fr(l); ul.appendChild(li); });
+    $('#f-streak').textContent = fq.streak;
+    $('#f-best').textContent = fq.best;
+    $('#f-rate').textContent = fq.ok + '/' + fq.total;
+  }
+
+  function newFault(silent) {
+    var fq = state.fq, sc, k = 0;
+    if (fq.sc && !fq.found) fq.streak = 0;
+    do { sc = D.faultScenario(); k++; } while (fq.sc && sc.key === fq.sc.key && k < 8);
+    fq.sc = sc; fq.found = fq.fixed = false; fq.probe = null; fq.tries = 0; fq.n++;
+    state.rot = sc.rot; state.sit = sc.sit; state.phase = 'service'; state.sel = null;
+    state.libre = {};
+    Object.keys(sc.pos).forEach(function (id) { state.libre[id] = sc.pos[id].slice(); });
+    if (state.cam === 'joueur') setCam('tribune');
+    placeAll(0.8);
+    if (!silent) renderAll();
+  }
+  function findClick(id) {
+    var fq = state.fq, sc = fq.sc;
+    if (!sc || !D.zoneOf(currentZones(), id)) return;
+    fq.tries++;
+    if (id === sc.ida || id === sc.idb) {
+      fq.found = true; fq.probe = null; fq.total++;
+      if (fq.tries === 1) { fq.ok++; fq.streak++; if (fq.streak > fq.best) { fq.best = fq.streak; store.set('rv3d.fbest', fq.best); } }
+      else fq.streak = 0;
+      state.sel = sc.moved;
+    } else {
+      fq.probe = id; state.sel = id;
+    }
+    renderAll();
+  }
+  function setSub(sub) {
+    stopAction(true);
+    state.sub = sub;
+    if (sub === 'find') { newFault(); return; }
+    state.libre = null; state.sel = state.sel || 'P';
+    placeAll(0.6); renderAll();
+  }
+
+  function renderModes() {
+    $$('.modes button').forEach(function (b) { b.setAttribute('aria-selected', String(b.dataset.mode === state.mode)); });
+    $('#panel-rot').hidden = state.mode === 'quiz' || (state.mode === 'libre' && state.sub === 'find');
+    $('#panel-libre').hidden = state.mode !== 'libre';
+    $('#panel-quiz').hidden = state.mode !== 'quiz';
+    $('#panel-info').hidden = state.mode === 'quiz';
+    $('#cam-joueur').disabled = state.mode === 'quiz' && !(state.quiz.answered || (state.quiz.q && state.quiz.q.phase === 'jeu'));
+    $('#stage').classList.toggle('picking', state.mode === 'quiz' && !state.quiz.answered);
+  }
+
+  function idleCaption() {
+    if (state.action) return;
+    if (state.mode === 'libre') {
+      var fq = state.fq, find = state.sub === 'find';
+      if (!find) setCaption('Glisse un joueur : ses lignes et sa zone verte le suivent', true);
+      else if (fq.fixed) setCaption('Corrigé : placement réglementaire', false);
+      else if (fq.found) setCaption('Glisse ' + D.PLAYERS[fq.sc.moved].code + ' dans sa zone verte', false);
+      else setCaption('Clique sur un joueur en faute', true);
+    }
+    else if (state.mode === 'quiz') setCaption(state.quiz.answered ? 'Question suivante quand tu veux' : (state.quiz.q && state.quiz.q.phase === 'jeu' ? 'Clique là où tu vas après le service' : 'Clique là où tu te places'), true);
+    else setCaption(state.phase === 'service' ? 'Glisser pour tourner · molette ou pincer pour zoomer' : 'Positions après la frappe du service', true);
+  }
+
+  function renderAll() {
+    renderModes(); renderRotPanel(); renderStatus();
+    if (state.mode !== 'quiz') renderInfo();
+    if (state.mode === 'libre') renderLibre();
+    if (state.mode === 'quiz') renderQuiz();
+    idleCaption();
+    drawLabels();
+  }
+
+  /* ======================= actions from the UI ======================= */
+  function select(id) {
+    if (hideFaults()) { findClick(id); return; }
+    state.sel = id;
+    if (state.cam === 'joueur') D.IDS.forEach(function (k) { applyVisibility(P3[k]); });
+    buildArrows(); renderInfo(); drawLabels();
+    if (state.mode === 'libre') renderLibre();
+  }
+  function setRot(rot) {
+    stopAction(true);
+    state.rot = rot;
+    if (state.mode === 'libre') state.libre = null;
+    if (state.mode === 'rotations') state.phase = 'service';
+    placeAll(0.9); renderAll();
+  }
+  function turn(dir) {
+    var i = D.ORDER.indexOf(state.rot);
+    setRot(D.ORDER[(i + (dir || 1) + 6) % 6]);
+    if (!state.action && (dir || 1) > 0) setCaption('On tourne dans le sens des aiguilles d’une montre', false);
+  }
+  function setSit(sit) {
+    stopAction(true);
+    state.sit = sit;
+    if (state.mode === 'libre') state.libre = null;
+    placeAll(0.8); renderAll();
+  }
+  function setPhase(ph) {
+    stopAction(true);
+    state.phase = ph; placeAll(0.9); renderAll();
+  }
+  function setMode(mode) {
+    stopAction(true);
+    state.mode = mode;
+    if (mode === 'libre') { state.libre = null; state.phase = 'service'; }
+    if (!(mode === 'libre' && state.sub === 'find') && !state.sel) state.sel = 'P';
+    if (mode === 'quiz') {
+      if (!state.quiz.q) newQuestion(true);
+      else { applyQuizScene(); }
+    } else {
+      D.IDS.forEach(function (id) { if (P3[id]) P3[id].hidden = false; });
+      if (R) R.marker.visible = false;
+      if (mode === 'libre' && state.sub === 'find') newFault(true);
+      else placeAll(0.7);
+    }
+    if (state.cam === 'joueur' && mode === 'quiz') setCam('tribune');
+    renderAll();
+  }
+
+  /* ======================= QUIZ ======================= */
+  function newQuestion(first) {
+    var qz = state.quiz, q = null, tries = 0;
+    while (!q && tries < 60) {
+      tries++;
+      var rot = pick(D.ORDER), sit = pick(['recoit', 'sert']);
+      var phase = qz.type === 'mix' ? pick(['service', 'service', 'jeu']) : qz.type;
+      var zm = D.zonesOnCourt(rot, sit), on = [];
+      for (var z = 1; z <= 6; z++) on.push(zm[z]);
+      var cands = on.filter(function (id) { return D.PLAYERS[id].role === qz.role; });
+      if (!cands.length) continue;
+      var cand = { rot: rot, sit: sit, phase: phase, id: pick(cands) };
+      var prev = qz.q;
+      if (prev && prev.rot === cand.rot && prev.sit === cand.sit && prev.phase === cand.phase && prev.id === cand.id) continue;
+      q = cand;
+    }
+    qz.q = q; qz.answered = false; qz.res = null; qz.hint = false; qz.n++;
+    if (R) R.marker.visible = false;
+    applyQuizScene();
+    if (!first) renderAll();
+  }
+
+  function applyQuizScene() {
+    var q = state.quiz.q; if (!q) return;
+    state.rot = q.rot; state.sit = q.sit;
+    D.IDS.forEach(function (id) { P3[id].hidden = false; });
+    if (!state.quiz.answered && q.phase === 'service') P3[q.id].hidden = true;
+    state.sel = q.id;
+    placeAll(0.7);
+  }
+
+  function quizAnswer(x, d) {
+    var qz = state.quiz, q = qz.q;
+    if (!q || qz.answered) return;
+    var res = { x: x, d: d, lines: [] };
+    var zm = D.zonesOnCourt(q.rot, q.sit), z = D.zoneOf(zm, q.id), code = D.PLAYERS[q.id].code;
+    if (q.phase === 'service') {
+      if (q.sit === 'sert' && z === 1) {
+        var okS = d >= 9 && Math.abs(x) <= 4.5;
+        res.level = okS ? 'parfait' : 'faute';
+        res.title = okS ? 'Bien vu, tu sers' : "C'est toi qui sers";
+        res.lines = [okS ? "Le serveur se place derrière la ligne de fond, entre les prolongements des lignes de côté. Il n'est pas concerné par la faute de position."
+          : 'En zone 1 quand ton équipe sert, tu es au service : derrière la ligne de fond, entre les prolongements des lignes de côté.'];
+      } else {
+        var model = D.F[q.rot][q.sit].service[q.id];
+        var chk = D.check(q.rot, q.sit, function (id) { return id === q.id ? [x, d] : D.F[q.rot][q.sit].service[id]; });
+        var mine = chk.faults.filter(function (f) { return f.ids.indexOf(q.id) >= 0; });
+        var dist = Math.hypot(x - model[0], d - model[1]);
+        if (mine.length) {
+          res.level = 'faute'; res.title = 'Faute de position';
+          res.lines = mine.map(function (f) { return f.msg; });
+          res.lines.push('Sur le terrain, la ligne rouge montre la règle cassée et la zone verte ta place autorisée.');
+          res.lines.push('Placement type : ' + D.placeTip(q.rot, q.sit, q.id));
+        } else if (dist <= 1.2) {
+          res.level = 'parfait'; res.title = 'Parfait';
+          res.lines = ['Réglementaire, à ' + fmt(dist) + ' m du placement type.'];
+        } else if (dist <= 2.2) {
+          res.level = 'bien'; res.title = 'Bien placé';
+          res.lines = ['Réglementaire, à ' + fmt(dist) + ' m du placement type : ' + D.placeTip(q.rot, q.sit, q.id)];
+        } else {
+          res.level = 'loin'; res.title = 'Réglementaire, mais loin';
+          res.lines = ['Pas de faute, mais tu es à ' + fmt(dist) + ' m du placement type. Vise plutôt ' + D.placeTip(q.rot, q.sit, q.id)];
+        }
+      }
+    } else {
+      var tgt = D.F[q.rot][q.sit].jeu[q.id], dj = Math.hypot(x - tgt[0], d - tgt[1]);
+      res.level = dj <= 1.2 ? 'parfait' : dj <= 2.2 ? 'bien' : 'loin';
+      res.title = dj <= 1.2 ? 'Parfait' : dj <= 2.2 ? 'Bien vu' : 'Pas tout à fait';
+      res.lines = [code + ' : ' + D.destText(q.rot, q.sit, q.id), 'Tu es à ' + fmt(dj) + ' m de la position type.'];
+    }
+    finishAnswer(res, true);
+  }
+
+  function finishAnswer(res, scored) {
+    var qz = state.quiz, q = qz.q;
+    qz.answered = true; qz.res = res; qz.total++;
+    var success = scored && (res.level === 'parfait' || res.level === 'bien');
+    if (success) { qz.ok++; qz.streak++; if (qz.streak > qz.best) { qz.best = qz.streak; store.set('rv3d.best', qz.best); } }
+    else qz.streak = 0;
+    if (R) {
+      var p = P3[q.id];
+      p.hidden = false; applyVisibility(p);
+      var color = res.level === 'faute' ? '#FF3B5C' : res.level === 'loin' ? '#FFC24B' : '#2FD07A';
+      if (res.x != null) showMarker(res.x, res.d, color);
+      if (q.phase === 'service') {
+        var m = D.F[q.rot][q.sit].service[q.id];
+        // a wrong answer stays where it was clicked, so the red line shows why
+        if (res.x != null) { p.tw = null; p.x = res.x; p.z = res.d; placeFig(p); if (res.level !== 'faute') moveTo(p, m[0], m[1], 0.8, 1.1); }
+        else moveTo(p, m[0], m[1], 0.8);
+      } else {
+        placeAll(0.9);
+      }
+    }
+    renderAll();
+  }
+
+  function quizReveal() {
+    var qz = state.quiz; if (!qz.q || qz.answered) return;
+    var q = qz.q;
+    finishAnswer({ level: 'loin', title: 'Réponse', lines: [
+      q.phase === 'service'
+        ? (q.sit === 'sert' && D.zoneOf(D.zonesOnCourt(q.rot, q.sit), q.id) === 1 ? "Tu sers : derrière la ligne de fond." : D.zoneHint(q.rot, q.sit, q.id) + ' Place-toi ' + D.placeTip(q.rot, q.sit, q.id))
+        : D.PLAYERS[q.id].code + ' : ' + D.destText(q.rot, q.sit, q.id)
+    ] }, false);
+  }
+
+  function renderQuiz() {
+    var qz = state.quiz, q = qz.q;
+    var roles = $('#quiz-roles');
+    if (!roles.children.length) {
+      ['passeur', 'r4', 'central', 'pointu', 'libero'].forEach(function (r) {
+        var b = document.createElement('button'); b.type = 'button'; b.dataset.role = r; b.id = 'role-' + r;
+        b.textContent = ROLE_LABEL[r];
+        b.addEventListener('click', function () { qz.role = r; store.set('rv3d.role', r); qz.q = null; newQuestion(); });
+        roles.appendChild(b);
+      });
+    }
+    $$('#quiz-roles button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.role === qz.role)); });
+    $$('#seg-qtype button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.qtype === qz.type)); });
+    if (!q) return;
+    var pl = D.PLAYERS[q.id], z = D.zoneOf(D.zonesOnCourt(q.rot, q.sit), q.id);
+    $('#q-eyebrow').textContent = 'Question ' + qz.n;
+    $('#q-title').textContent = fr(q.rot + ' · ' + SIT_LABEL[q.sit]);
+    $('#q-text').textContent = fr(q.phase === 'service'
+      ? 'Tu es ' + pl.code + ' (#' + pl.num + '). Clique sur le terrain là où tu te places au moment du service.'
+      : 'Tu es ' + pl.code + ' (#' + pl.num + '), en zone ' + z + '. Le service part : clique là où tu vas.');
+    var hint = $('#q-hint');
+    hint.hidden = !qz.hint;
+    if (qz.hint) hint.textContent = fr(q.phase === 'service' ? D.zoneHint(q.rot, q.sit, q.id) : 'Indice : ' + roleHint(q));
+    var fb = $('#q-feedback');
+    fb.hidden = !qz.answered;
+    if (qz.answered && qz.res) {
+      var lvl = qz.res.level;
+      fb.className = 'feedback ' + (lvl === 'faute' ? 'fault' : lvl === 'loin' ? 'warn' : 'ok');
+      $('#q-fb-title').textContent = fr(qz.res.title);
+      var ul = $('#q-fb-lines'); ul.innerHTML = '';
+      qz.res.lines.forEach(function (l) { var li = document.createElement('li'); li.textContent = fr(l); ul.appendChild(li); });
+    }
+    $('#btn-hint').disabled = qz.answered || qz.hint;
+    $('#btn-reveal').disabled = qz.answered;
+    $('#btn-next').className = 'btn grow' + (qz.answered ? ' primary' : '');
+    $('#sc-streak').textContent = qz.streak;
+    $('#sc-best').textContent = qz.best;
+    $('#sc-rate').textContent = qz.ok + '/' + qz.total;
+  }
+  function roleHint(q) {
+    var sit = q.sit, role = D.PLAYERS[q.id].role;
+    if (sit === 'recoit') return role === 'passeur' ? 'le passeur file toujours à la cible, au filet à droite du centre.' : role === 'central' ? 'le central avant prend son élan pour la balle rapide.' : role === 'libero' ? 'après la réception, le libéro couvre derrière les attaquants.' : "l'attaque se prépare : avant à gauche ou à droite, arrière au fond.";
+    return 'en défense, les avants contrent au filet et les arrières se partagent les zones 1, 6 et 5.';
+  }
+
+  /* ======================= pointer ======================= */
+  function bindPointer(el) {
+    var ndc = new THREE.Vector2(), down = null;
+    function setNdc(e) {
+      var r = el.getBoundingClientRect();
+      ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      R.raycaster.setFromCamera(ndc, R.camera);
+    }
+    function floorPoint() { var v = new THREE.Vector3(); return R.raycaster.ray.intersectPlane(R.floorPlane, v) ? v : null; }
+    function hitPlayer() {
+      var hits = R.raycaster.intersectObjects(R.pick.filter(function (m) { var p = P3[m.userData.id]; return p && p.group.visible; }), false);
+      return hits.length ? hits[0].object.userData.id : null;
+    }
+    el.addEventListener('pointerdown', function (e) {
+      if (!e.isPrimary) return;
+      setNdc(e);
+      down = { x: e.clientX, y: e.clientY, id: hitPlayer() };
+      if (state.mode === 'libre' && !hideFaults() && down.id && D.zoneOf(currentZones(), down.id) && state.cam !== 'joueur') {
+        state.dragging = down.id; R.controls.enabled = false;
+        $('#stage').classList.add('dragging');
+        select(down.id);
+        try { el.setPointerCapture(e.pointerId); } catch (err) {}
+      }
+    });
+    el.addEventListener('pointermove', function (e) {
+      if (!state.dragging) return;
+      setNdc(e);
+      var v = floorPoint(); if (!v) return;
+      var p = P3[state.dragging];
+      p.tw = null; p.x = clamp(v.x, -8.5, 8.5); p.z = clamp(v.z, 0.25, 14.5); placeFig(p);
+      if (!state.libre) state.libre = {};
+      state.libre[p.id] = [p.x, p.z];
+    });
+    function end(e) {
+      if (state.dragging) {
+        state.dragging = null; R.controls.enabled = state.cam !== 'joueur';
+        $('#stage').classList.remove('dragging');
+        renderStatus(); renderLibre();
+        down = null; return;
+      }
+      if (!down) return;
+      var moved = Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6;
+      var id = down.id; down = null;
+      if (moved) return;
+      setNdc(e);
+      if (state.mode === 'quiz') {
+        if (state.quiz.answered || !state.quiz.q) { if (id) return; return; }
+        var v = floorPoint();
+        if (!v) return;
+        if (v.z < -0.2) { setCaption('Clique dans ton camp, côté caméra', true); return; }
+        quizAnswer(clamp(v.x, -9, 9), clamp(v.z, -0.2, 15));
+        return;
+      }
+      if (id) select(id);
+    }
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', function () { if (state.dragging) { state.dragging = null; R.controls.enabled = true; $('#stage').classList.remove('dragging'); } down = null; });
+  }
+
+  /* ======================= wiring ======================= */
+  $$('.modes button').forEach(function (b) { b.addEventListener('click', function () { setMode(b.dataset.mode); }); });
+  $$('#seg-sit button').forEach(function (b) { b.addEventListener('click', function () { setSit(b.dataset.sit); }); });
+  $$('#seg-phase button').forEach(function (b) { b.addEventListener('click', function () { setPhase(b.dataset.phase); }); });
+  $$('#seg-cam button').forEach(function (b) { b.addEventListener('click', function () { if (!b.disabled) setCam(b.dataset.cam); }); });
+  $$('#seg-qtype button').forEach(function (b) {
+    b.addEventListener('click', function () { state.quiz.type = b.dataset.qtype; store.set('rv3d.qtype', b.dataset.qtype); newQuestion(); });
+  });
+  $('#btn-turn').addEventListener('click', function () { turn(1); });
+  $('#btn-play').addEventListener('click', function () { if (state.action) stopAction(false); else playAction(); });
+  $('#btn-speed').addEventListener('click', function () { state.speed = state.speed === 1 ? 0.5 : 1; renderRotPanel(); });
+  $('#btn-reset').addEventListener('click', function () { state.libre = null; placeAll(0.6); renderAll(); });
+  $$('#seg-sub button').forEach(function (b) { b.addEventListener('click', function () { setSub(b.dataset.sub); }); });
+  $('#btn-fnext').addEventListener('click', function () { newFault(); });
+  $('#btn-next').addEventListener('click', function () { newQuestion(); });
+  $('#btn-hint').addEventListener('click', function () { state.quiz.hint = true; renderQuiz(); });
+  $('#btn-reveal').addEventListener('click', quizReveal);
+  $('#tg-rules').addEventListener('change', function (e) { state.rules = e.target.checked; renderStatus(); });
+  $('#tg-zones').addEventListener('change', function (e) { state.zones = e.target.checked; if (R) R.zoneMesh.visible = state.zones; });
+  $('#tg-arrows').addEventListener('change', function (e) { state.arrows = e.target.checked; buildArrows(); });
+  document.addEventListener('keydown', function (e) {
+    var tag = (e.target && e.target.tagName) || '';
+    if (/INPUT|TEXTAREA|SELECT/.test(tag) || e.metaKey || e.ctrlKey || e.altKey) return;
+    var canTurn = state.mode === 'rotations' || (state.mode === 'libre' && state.sub !== 'find');
+    if (e.key === 'ArrowRight' && canTurn) { turn(1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft' && canTurn) { turn(-1); e.preventDefault(); }
+    else if (e.key === ' ' && state.mode === 'rotations' && tag !== 'BUTTON') { if (state.action) stopAction(false); else playAction(); e.preventDefault(); }
+    else if (e.key === '1') setCam('tribune');
+    else if (e.key === '2') setCam('dessus');
+    else if (e.key === '3' && !$('#cam-joueur').disabled) setCam('joueur');
+  });
+
+  /* ======================= boot ======================= */
+  has3D = init3D();
+  window.__rv3d = { state: state, P3: P3 };   // read-only hook for automated checks
+  if (has3D) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq.addEventListener) mq.addEventListener('change', applyTheme);
+    new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    setCam('tribune', true);
+    placeAll(0.01);
+    requestAnimationFrame(frame);
+    if (document.fonts && document.fonts.load) {
+      Promise.all([
+        document.fonts.load('800 58px "Big Shoulders Display"'),
+        document.fonts.load('900 210px "Big Shoulders Display"'),
+        document.fonts.load('600 30px "Barlow Condensed"')
+      ]).then(function () { drawLabels(); drawZones(); }).catch(function () {});
+    }
+  }
+  renderAll();
+})();
+</script>
